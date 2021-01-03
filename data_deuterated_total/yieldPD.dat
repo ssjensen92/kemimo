@@ -1,0 +1,36 @@
+###########
+#photodesorption yields (Hollenbach+2009), Tab.1
+#http://iopscience.iop.org/article/10.1088/0004-637X/690/2/1497/pdf
+#format is
+# reactant, product, product, ..., yield
+# A yield of -42 means that photodesorption is ignored for the reaction
+
+H2O	OH H_gas 1.19e-2
+H2O	OH_gas H 4.81e-4
+H2O	OH_gas H_gas 1.66e-4
+H2O	H2O_gas		1.17e-4
+H2O	OH H 3.96e-3
+
+HDO	OH D_gas 3.66e-3
+HDO	OD H_gas 7.93e-3
+HDO	OH_gas D 4.05e-5
+HDO	OD_gas H 3.14e-5
+HDO	OD_gas H_gas 1.40e-4
+HDO	OH_gas D_gas 1.63e-4
+HDO	OD H 3.11e-3
+HDO	OH D 1.70e-3
+HDO HDO_gas 6.81e-5
+
+D2O	OD D_gas 1.10e-2
+D2O	OD_gas D 1.02e-4
+D2O	OD_gas D_gas 4.13e-4
+D2O	D2O_gas		8.46e-5
+D2O	OD D 3.68e-3
+
+
+#H2O	OH_gas H_gas    1.5e-3
+CO CO_gas 2.7e-3
+CO2 CO2_gas 5e-4
+CO2 CO_gas O_gas 5e-4
+
+N2 N2_gas 5e-4
