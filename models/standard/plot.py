@@ -26,7 +26,7 @@ def all_ice(dictionary, species_in):
     return ice
 
 
-def read_commons(fname="kemiko_commons.f90"):
+def read_commons(fname="kemimo_commons.f90"):
     species = []
     sortkey = []
     idxListBegin = False
