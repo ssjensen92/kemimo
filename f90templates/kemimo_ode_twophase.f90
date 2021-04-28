@@ -8,8 +8,7 @@ contains
     use kemimo_commons
     use kemimo_rates
     implicit none
-    real*8,intent(inout)::n(nmols)
-    real*8 ::dt
+    real*8,intent(inout)::n(nmols), dt
     real*8 :: ni(nmols)
     integer::i, ncount
 
@@ -18,7 +17,7 @@ contains
     integer,parameter::lrw=20+16*nmols+3*nmols**2
     integer,parameter::liw=30
     !tolerances
-    real*8,parameter::rtol(nmols) = 1d-4
+    real*8,parameter::rtol(nmols) = 1d-5
     real*8,parameter::atol(nmols) = 1d-20
     integer::neqa(1),itol,itask,istate,iopt,mf
     integer::iwork(liw)
@@ -97,7 +96,7 @@ contains
             print *, 'Attempted 10 times with state -3 from solver. Giving up.'
             stop
           endif
-          print *, 'Solver returned state -3. Returning abundances to the initial value and reducing dt'
+          print *, 'reducing dt'
           n(:) = ni(:)
           dt = dt / 3d0
           istate = 1
@@ -130,11 +129,8 @@ contains
     n(idx_dummy) = 1d0
     ! ----------------------------------------------------------------------
     ! Chemistry part:
-
-    dn(:) = 0d0
-    n(idx_dummy) = 1d0
     do i=1, nrea-1
-      ! flux = rate * n1 * n2 * layer_selection
+      ! flux = rate * n1 * n2
       ! Reaction array:
       !   1: reaction_idx
       !   2: reaction layer
@@ -144,24 +140,12 @@ contains
         flux = kall(reactionArray(i,1)) * n(reactionArray(i,3)) * n(reactionArray(i,4))
         layer = reactionArray(i,2)
         rtype = reactionArray(i,9)
-        ! Ignore if the layer is zero (gas-phase)
-        if (layer > 0) then
-          ! two-phase:
-          if (n(idx_surface_mask)*layerThickness > 1d0) then		
-            ! limit thermal desorption, CR desorption and photoprocesses to *layerthickness* of mly:
-            if (rtype == 1 .or. rtype == 2 .or. rtype == 3 .or. rtype == 4) then
-              flux = flux * min(1d0, layerThickness/n(idx_surface_mask))
-            ! 2body reactions:
-            elseif (rtype == 5) then 
-              if (n(idx_surface_mask) > 1d0) then
-                ! From sect. 7 of Cuppen+2017, with minor adjustments:
-                flux = flux / (n(idx_surface_mask))
-              endif
-            endif
-          endif
-          
-        endif
 
+        ! Ignore if the layer is zero (gas-phase)
+        if (rtype == 5) flux = flux * 1d0/max(1d0, min(n(idx_surface_mask), real(layerThickness)))
+        if (rtype == 4) flux = flux * min(n(idx_surface_mask), 4d0)/ max(n(idx_surface_mask)*ndns, ndns)
+        if (rtype == 3) flux = flux * min(n(idx_surface_mask), 1d0)/ max(n(idx_surface_mask)*ndns, ndns)
+        
         dn(reactionArray(i,3)) = dn(reactionArray(i,3)) - flux
         dn(reactionArray(i,4)) = dn(reactionArray(i,4)) - flux
         dn(reactionArray(i,5)) = dn(reactionArray(i,5)) + flux
@@ -170,13 +154,13 @@ contains
         dn(reactionArray(i,8)) = dn(reactionArray(i,8)) + flux
 
     end do
-    ! "Reaction rate" for mask layer
-    !!! BEGIN MASK DN
+
+    dn(idx_dummy) = 0d0
+
     do i=surface_start, surface_end
       dn(idx_surface_mask) = dn(idx_surface_mask) + dn(i)
     enddo
-    dn(idx_surface_mask) = dn(idx_surface_mask)*kall(nrea)
-    !!! END MASK DN
+
 
     end subroutine fex
 
@@ -257,8 +241,8 @@ contains
 
       if (layer == 1) then
         if (rtype == 5) flux = flux * 1d0/max(1d0, min(n(idx_surface_mask), real(layerThickness)))
-        if (rtype == 4) flux = flux * min(n(idx_surface_mask), 4d0)
-        if (rtype == 3) flux = flux * min(n(idx_surface_mask), 1d0)
+        if (rtype == 4) flux = flux * min(n(idx_surface_mask), 4d0)/ max(n(idx_surface_mask)*ndns, ndns)
+        if (rtype == 3) flux = flux * min(n(idx_surface_mask), 1d0)/ max(n(idx_surface_mask)*ndns, ndns)
       endif
 
 
@@ -294,6 +278,8 @@ contains
     real*8 :: rtol_arr(*), atol_arr(*), ycur(*)
     integer :: i
 
+    ewt_fac(:) = 1.0d0
+    
     select case(itol)
     case(1)
         do i = 1, nmols
