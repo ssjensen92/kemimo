@@ -142,9 +142,22 @@ contains
         rtype = reactionArray(i,9)
 
         ! Ignore if the layer is zero (gas-phase)
-        if (rtype == 5) flux = flux * 1d0/max(1d0, min(n(idx_surface_mask), real(layerThickness)))
-        if (rtype == 4) flux = flux * min(n(idx_surface_mask), 4d0)/ max(n(idx_surface_mask)*ndns, ndns)
-        if (rtype == 3) flux = flux * min(n(idx_surface_mask), 1d0)/ max(n(idx_surface_mask)*ndns, ndns)
+        if (layer > 0) then
+          ! two-phase:
+          if (n(idx_surface_mask)*layerThickness > 1d0) then		
+            ! limit thermal desorption, CR desorption and photoprocesses to *layerthickness* of mly:
+            if (rtype == 1 .or. rtype == 2 .or. rtype == 3 .or. rtype == 4) then
+              flux = flux * min(1d0, layerThickness/n(idx_surface_mask))
+            ! 2body reactions:
+            elseif (rtype == 5) then 
+              if (n(idx_surface_mask) > 1d0) then
+                ! From sect. 7 of Cuppen+2017, with minor adjustments:
+                flux = flux / (n(idx_surface_mask))
+              endif
+            endif
+          endif
+
+        endif
         
         dn(reactionArray(i,3)) = dn(reactionArray(i,3)) - flux
         dn(reactionArray(i,4)) = dn(reactionArray(i,4)) - flux
@@ -160,6 +173,8 @@ contains
     do i=surface_start, surface_end
       dn(idx_surface_mask) = dn(idx_surface_mask) + dn(i)
     enddo
+
+    dn(idx_surface_mask) = dn(idx_surface_mask) * kall(nrea)
 
 
     end subroutine fex
@@ -238,11 +253,22 @@ contains
       endif
       
 
+      ! Ignore if the layer is zero (gas-phase)
+      if (layer > 0) then
+        ! two-phase:
+        if (n(idx_surface_mask)*layerThickness > 1d0) then		
+          ! limit thermal desorption, CR desorption and photoprocesses to *layerthickness* of mly:
+          if (rtype == 1 .or. rtype == 2 .or. rtype == 3 .or. rtype == 4) then
+            flux = flux * min(1d0, layerThickness/n(idx_surface_mask))
+          ! 2body reactions:
+          elseif (rtype == 5) then 
+            if (n(idx_surface_mask) > 1d0) then
+              ! From sect. 7 of Cuppen+2017, with minor adjustments:
+              flux = flux / (n(idx_surface_mask))
+            endif
+          endif
+        endif
 
-      if (layer == 1) then
-        if (rtype == 5) flux = flux * 1d0/max(1d0, min(n(idx_surface_mask), real(layerThickness)))
-        if (rtype == 4) flux = flux * min(n(idx_surface_mask), 4d0)/ max(n(idx_surface_mask)*ndns, ndns)
-        if (rtype == 3) flux = flux * min(n(idx_surface_mask), 1d0)/ max(n(idx_surface_mask)*ndns, ndns)
       endif
 
 
