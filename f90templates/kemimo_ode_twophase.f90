@@ -1,12 +1,12 @@
-module kemiko_ode
+module kemimo_ode
 contains
 
   !************************
   !evolve chemistry for a time-step dt (s)
   ! n(:) are species number densities
   subroutine dochem(n,dt)
-    use kemiko_commons
-    use kemiko_rates
+    use kemimo_commons
+    use kemimo_rates
     implicit none
     real*8,intent(inout)::n(nmols)
     real*8 ::dt
@@ -99,7 +99,7 @@ contains
           endif
           print *, 'Solver returned state -3. Returning abundances to the initial value and reducing dt'
           n(:) = ni(:)
-          dt = dt / 2d0
+          dt = dt / 3d0
           istate = 1
        else
           !unknonw problem stop program
@@ -114,10 +114,9 @@ contains
   !differential equations, returns dn(:)
   ! see DLSODES documentation
   subroutine fex(neq, tt, n, dn)
-    use kemiko_commons
-    use kemiko_reactionarray
-    use kemiko_rates
-    use kemiko_swappingrates
+    use kemimo_commons
+    use kemimo_reactionarray
+    use kemimo_rates
     implicit none
     integer::neq,i
     real*8::n(neq),tt,dn(neq)
@@ -172,8 +171,6 @@ contains
 
     end do
     ! "Reaction rate" for mask layer
-    dn(idx_p_H2_0001) = 0d0
-    dn(idx_o_H2_0001) = 0d0
     !!! BEGIN MASK DN
     do i=surface_start, surface_end
       dn(idx_surface_mask) = dn(idx_surface_mask) + dn(i)
@@ -186,7 +183,7 @@ contains
   !****************
   !differential equations, only formation
   function fexForm(n) result(dnf)
-    use kemiko_commons
+    use kemimo_commons
     implicit none
     real*8,intent(in)::n(nmols)
     real*8::dnf(nmols)
@@ -202,9 +199,9 @@ contains
   !***************************
   !Jacobian, pd(i,j)=df(i)/dx(j), see DLSODES documentation
   subroutine jes(neq, tt, n, j, ian, jan, pdj)
-    use kemiko_commons
-    use kemiko_reactionarray
-    use kemiko_rates
+    use kemimo_commons
+    use kemimo_reactionarray
+    use kemimo_rates
     implicit none
     integer::neq, j, ian, jan, i, ii, offset, layer, rtype
     real*8::tt, n(neq), pdj(neq)
@@ -274,8 +271,6 @@ contains
 
     end do
 
-    pdj(idx_p_H2_0001) = 0d0
-    pdj(idx_o_H2_0001) = 0d0
     pdj(idx_dummy) = 0d0
 
     do i=surface_start, surface_end
@@ -291,19 +286,13 @@ contains
 
 !########################################################################
   subroutine dewset(n, itol, rtol_arr, atol_arr, ycur, ewt)
-    use kemiko_commons
+    use kemimo_commons
     implicit none
 
     integer :: n, itol
     real*8, dimension(nmols) :: ewt
     real*8 :: rtol_arr(*), atol_arr(*), ycur(*)
     integer :: i
-
-    if (ewt_flag .eq. 0) then
-        ewt_fac(:) = 1.0d0
-    else
-        ewt_fac(:) = 1.0d0/ewt_fac(:)
-    endif
 
     select case(itol)
     case(1)
@@ -329,4 +318,4 @@ contains
   end subroutine dewset
 
 
-end module kemiko_ode
+end module kemimo_ode

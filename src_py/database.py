@@ -791,9 +791,9 @@ class database:
             copyfile('./f90templates/kemimo_flux_threephase.f90',
                      './kemimo_flux.f90')
         else:
-            copyfile('./f90templates/kemimo_ode_jac_hardcode_twophase.f90',
+            copyfile('./f90templates/kemimo_ode_twophase.f90',
                      './kemimo_ode.f90')
-            copyfile('./f90templates/kemimo_twophase.f90',
+            copyfile('./f90templates/kemimo_include_H2.f90',
                      './kemimo.f90')
             copyfile('./f90templates/kemimo_flux_twophase.f90',
                      './kemimo_flux.f90')

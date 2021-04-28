@@ -1,5 +1,6 @@
 module kemimo_ode
 contains
+
   !************************
   !evolve chemistry for a time-step dt (s)
   ! n(:) are species number densities
@@ -16,8 +17,8 @@ contains
     integer,parameter::lrw=20+16*nmols+3*nmols**2
     integer,parameter::liw=30
     !tolerances
-    real*8,parameter::rtol(nmols) = 1d-6
-    real*8,parameter::atol(nmols) = 1d-22
+    real*8,parameter::rtol(nmols) = 1d-5
+    real*8,parameter::atol(nmols) = 1d-20
     integer::neqa(1),itol,itask,istate,iopt,mf
     integer::iwork(liw)
     real*8::rwork(lrw),tloc
@@ -28,8 +29,6 @@ contains
 
     !number of equations is a single sized array
     neqa(:) = nmols
-
-    ! Set solver feedback. Used to reduce dt:
 
 
     !  FROM DLSODES manual
@@ -84,42 +83,31 @@ contains
           istate = 1
           cycle
        elseif(istate==2) then
-        if (reduce_dt == 1) then
-          print*, 'reducing dt'
-          tloc = 0d0
-          n(:) = ni(:)
-          dt = dt/3d0
-          istate = 1
-          reduce_dt = 0
-          cycle
-        else
           !success integration
           exit
-        endif
        elseif(istate==-5) then
           !problem with sparsity, need to recompute
           istate = 3
           cycle
        elseif(istate==-3) then
           ncount = ncount + 1
-          print*, 'reducing dt'
           !problem with input.
           if (ncount > 10) then 
             print *, 'Attempted 10 times with state -3 from solver. Giving up.'
             stop
           endif
+          print *, 'reducing dt'
           n(:) = ni(:)
           dt = dt / 3d0
           istate = 1
        else
-          !unknown problem stop program
+          !unknonw problem stop program
           print *,istate
           stop
        end if
     end do
 
   end subroutine dochem
-
 
   !*********************
   !differential equations, returns dn(:)
@@ -149,21 +137,15 @@ contains
       !   3,4: reactants
       !   5,6,7,8: products
       !   9: reaction type (see utils.py for getReactionType function)
-
         flux = kall(reactionArray(i,1)) * n(reactionArray(i,3)) * n(reactionArray(i,4))
         layer = reactionArray(i,2)
         rtype = reactionArray(i,9)
-        if (layer >1) then
-          cycle
-        endif
 
-        if (layer == 1) then
-          if (rtype == 5) flux = flux * 1d0/max(1d0, min(n(idx_surface_mask), real(layerThickness)))
-          if (rtype == 4) flux = flux * min(n(idx_surface_mask), 4d0)/ max(n(idx_surface_mask)*ndns, ndns)
-          if (rtype == 3) flux = flux * min(n(idx_surface_mask), 1d0)/ max(n(idx_surface_mask)*ndns, ndns)
-        endif
-
-
+        ! Ignore if the layer is zero (gas-phase)
+        if (rtype == 5) flux = flux * 1d0/max(1d0, min(n(idx_surface_mask), real(layerThickness)))
+        if (rtype == 4) flux = flux * min(n(idx_surface_mask), 4d0)/ max(n(idx_surface_mask)*ndns, ndns)
+        if (rtype == 3) flux = flux * min(n(idx_surface_mask), 1d0)/ max(n(idx_surface_mask)*ndns, ndns)
+        
         dn(reactionArray(i,3)) = dn(reactionArray(i,3)) - flux
         dn(reactionArray(i,4)) = dn(reactionArray(i,4)) - flux
         dn(reactionArray(i,5)) = dn(reactionArray(i,5)) + flux
@@ -172,70 +154,13 @@ contains
         dn(reactionArray(i,8)) = dn(reactionArray(i,8)) + flux
 
     end do
-    
-    !dn(idx_p_H2_0001) = 0d0
-    !dn(idx_o_H2_0001) = 0d0
+
     dn(idx_dummy) = 0d0
 
     do i=surface_start, surface_end
       dn(idx_surface_mask) = dn(idx_surface_mask) + dn(i)
     enddo
 
-    R = dn(idx_surface_mask)
-    dn(idx_surface_mask) = dn(idx_surface_mask)*kall(nrea)
-    if (dn(idx_surface_mask) > real(layerThickness)) then 
-      reduce_dt = 1
-    else
-      reduce_dt = 0
-    endif
-
-    ! Nmantle
-    Nmantle = n(idx_mantle_mask) / kall(nrea)
-    Nsurface = n(idx_surface_mask) / kall(nrea)
-
-    ! ----------------------------------------------------------
-    ! Transfer part:
-    ! Determine offset between layer indices:
-    offset = mantle_start - surface_start
-
-    ! Calculate individual rates:
-    ! --------------------------------------
-    ! accretion:
-    if (R >= 0d0) then
-      alpha = max(0d0, n(idx_surface_mask) - (real(layerThickness) - 1d0))
-      ! Calculate total transfer rate:
-      dnsdt = alpha * R
-      ! Adjust mask:
-      dn(idx_surface_mask) = dn(idx_surface_mask) - dnsdt * kall(nrea)
-      dn(idx_mantle_mask) = dn(idx_mantle_mask) + dnsdt * kall(nrea)
-      do i=surface_start, surface_end
-        if (i == idx_p_H2_0001) cycle
-        if (i == idx_o_H2_0001) cycle
-        dn(i) = dn(i) - dnsdt * n(i)/Nsurface
-        dn(i+offset) = dn(i+offset) + dnsdt * n(i)/Nsurface
-      enddo
-
-
-    ! --------------------------------------
-    ! desorption:
-    else
-      ! Adjust mask:
-      alpha = min(1d0, Nmantle / min(Nsurface, ndns))
-      if (alpha < 0d0) print*, alpha
-      dnsdt = alpha * R
-      dn(idx_surface_mask) = dn(idx_surface_mask) - dnsdt * kall(nrea)
-      dn(idx_mantle_mask) = dn(idx_mantle_mask) + dnsdt * kall(nrea)
-      
-      do i=surface_start, surface_end
-        if (i == idx_p_H2_0001) cycle
-        if (i == idx_o_H2_0001) cycle
-        dn(i) = dn(i) - dnsdt * n(i+offset)/Nmantle
-        dn(i+offset) = dn(i+offset) + dnsdt * n(i+offset)/Nmantle
-      enddo
-
-    endif
-
-    dn_surface = dn(idx_surface_mask)
 
     end subroutine fex
 
@@ -313,6 +238,7 @@ contains
       endif
       
 
+
       if (layer == 1) then
         if (rtype == 5) flux = flux * 1d0/max(1d0, min(n(idx_surface_mask), real(layerThickness)))
         if (rtype == 4) flux = flux * min(n(idx_surface_mask), 4d0)/ max(n(idx_surface_mask)*ndns, ndns)
@@ -329,80 +255,14 @@ contains
 
     end do
 
-    !pdj(idx_p_H2_0001) = 0d0
-    !pdj(idx_o_H2_0001) = 0d0
     pdj(idx_dummy) = 0d0
 
     do i=surface_start, surface_end
       pdj(idx_surface_mask) = pdj(idx_surface_mask) + pdj(i)
     enddo
-
-    R = pdj(idx_surface_mask)
     pdj(idx_surface_mask) = pdj(idx_surface_mask) * kall(nrea)
 
-    ! ----------------------------------------------------------
-    ! Transfer part:
-    ! Determine offset between layer indices:
-    offset = mantle_start - surface_start
-
-    ! Nmantle, Nsurface
-    Nmantle = n(idx_mantle_mask) / kall(nrea)
-    Nsurface = n(idx_surface_mask) / kall(nrea)
-
-    ! Calculate individual rates:
-    ! --------------------------------------
-    ! accretion:
-    if (R >= 0d0) then
-      alpha = max(0d0, n(idx_surface_mask) - (real(layerThickness) - 1d0))
-      ! Calculate total transfer rate:
-      dnsdt = alpha * R
-      ! Adjust mask:
-      pdj(idx_surface_mask) = pdj(idx_surface_mask) - dnsdt * kall(nrea)
-      pdj(idx_mantle_mask) = pdj(idx_mantle_mask) + dnsdt * kall(nrea)
-      do i=surface_start, surface_end
-        if (pdj(i) == 0d0) cycle
-        if (i == idx_p_H2_0001) cycle
-        if (i == idx_o_H2_0001) cycle
-        if (i == j) cycle
-        pdj(i) = pdj(i) - dnsdt * n(i)/Nsurface
-        pdj(i+offset) = pdj(i+offset) + dnsdt * n(i)/Nsurface
-      enddo
-
-    ! --------------------------------------
-    ! desorption:
-    else
-      ! Adjust mask:
-      if (Nmantle < 1d-25) return
-      alpha = min(1d0, Nmantle / min(Nsurface, ndns))
-      dnsdt = alpha * R
-      pdj(idx_surface_mask) = pdj(idx_surface_mask) - dnsdt * kall(nrea)
-      pdj(idx_mantle_mask) = pdj(idx_mantle_mask) + dnsdt * kall(nrea)
-      
-      do i=surface_start, surface_end
-        if (pdj(i) == 0d0) cycle
-        if (i == idx_p_H2_0001) cycle
-        if (i == idx_o_H2_0001) cycle
-        if (i == j) cycle
-        pdj(i) = pdj(i) - dnsdt * n(i+offset)/Nmantle
-        pdj(i+offset) = pdj(i+offset) + dnsdt * n(i+offset)/Nmantle
-      enddo
-
-    endif
-
     ewt_fac(:) = 1d0
-
-    ! We have to ignore very low values
-    if (abs(dn_surface) < 1d-25) return
-    ! Loop on species (This loop could be reduced)
-    do i=1, surface_end
-      if (i == idx_dummy) cycle
-      if (i == idx_o_H2_0001) cycle
-      if (i == idx_o_H2_0002) cycle
-      if (i == idx_p_H2_0001) cycle
-      if (i == idx_p_H2_0002) cycle
-      ewt_fac(i) = abs(pdj(idx_surface_mask) * ndns * n(i) / (dn_surface * ndns))
-      if ((ewt_fac(i) < 1d0) .or. (ewt_fac(i) /= ewt_fac(i))) ewt_fac = 1d0
-    enddo
     ! <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
     !!END_JACOBIAN
 
@@ -418,12 +278,8 @@ contains
     real*8 :: rtol_arr(*), atol_arr(*), ycur(*)
     integer :: i
 
-    if (ewt_flag .eq. 0) then
-        ewt_fac(:) = 1.0d0
-    else
-        ewt_fac(:) = 1.0d0/ewt_fac(:)
-    endif
-
+    ewt_fac(:) = 1.0d0
+    
     select case(itol)
     case(1)
         do i = 1, nmols
