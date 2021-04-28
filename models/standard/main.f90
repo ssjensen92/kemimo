@@ -1,6 +1,6 @@
 ! ****************
 ! main program: evolve a single model for several time-steps
-program kemimo
+program main
   use kemimo_commons
   use kemimo_rates
   use kemimo
@@ -115,6 +115,6 @@ program kemimo
   ! close unit
   close(unit)
 
-end program kemimo
+end program main
 
 
