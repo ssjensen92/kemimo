@@ -11,7 +11,7 @@ class reactionGas:
     # constructor for gas-phase reactions
     # row: reaction file row, here KIDA format
     # speciesList: list of species loaded from species file
-    def __init__(self, row, speciesList, atomMassList):
+    def __init__(self, row, speciesList, atomMassList, respectGasphaseLimits=True):
         # variables employed for cosmic rays and photochemistry
         self.CRvar = "variable_crflux"  # name of the CR flux variable
         self.Avvar = "variable_Av"  # name of the Av variable
@@ -46,6 +46,9 @@ class reactionGas:
         # default limits
         self.Tmin = -1e99
         self.Tmax = 1e99
+
+        # respect temperature limits?
+        self.respectGasphaseLimits = respectGasphaseLimits
 
         # parse a KIDA file line
         self.parseFormatKIDA(row, speciesList, atomMassList)
@@ -183,7 +186,13 @@ class reactionGas:
             self.products.append(speciesDict[specName])
 
         # read temperature ranges
-        self.Tmin = float(dataRow["tmin"])
+        if self.respectGasphaseLimits:
+            self.Tmin = float(dataRow["tmin"])
+        else:
+            if float(dataRow["tmin"]) == 10.0:
+                self.Tmin = 5.0 # Set to 5 for dense/prestellar core conditions.
+            else:
+                self.Tmin = float(dataRow["tmin"]) 
         self.Tmax = float(dataRow["tmax"])
 
         # Formula is a number that refers to the formula needed to compute the rate coefficient of the reaction
@@ -213,8 +222,18 @@ class reactionGas:
             else:
                 KK += " * kgr_ion"
         elif arow["formula"] == 1:
-            self.type = "gasphase_CR"
-            KK = arow["a"] + "*" + CRvar
+            if self.kidatype == 1 or self.kidatype == 0:
+                self.type = "gasphase_CR"
+                KK = arow["a"] + "*" + CRvar
+            elif self.kidatype == 2 or self.kidatype == 3:
+                self.type = "gasphase_CRP"
+                if "o_H2" not in speciesDict:
+                    KK = arow["a"] + "*0.5*" + "n(idx_H2_gas)/(n(idx_H_gas)+2*n(idx_H2_gas))"+ "*" + CRvar 
+                else:
+                    KK = arow["a"] + "*2.0*" + "(n(idx_o_H2_gas)+n(idx_p_H2_gas))/(n(idx_H_gas)+2*(n(idx_o_H2_gas)+n(idx_p_H2_gas)))"+ "*" + CRvar 
+            else:
+                print('error in: ', self.kidatype, ' ;  ', print(srow))
+                sys.exit()
         elif arow["formula"] == 2:
             self.type = "gasphase_Av"
             self.alpha = float(arow["a"])
@@ -232,7 +251,7 @@ class reactionGas:
                     KK = "ss_HD*" + KK
                 elif self.reactants[0].name == 'N2_gas':
                     KK = "ss_N2*" + KK
-        elif arow["formula"] == 3:
+        elif arow["formula"] == 3 or str(arow["formula"]).startswith('3'):
             KK = arow["a"]
             if float(arow["b"]) != 0e0:
                 KK += "*(" + Tgasvar + "/3d2)**(" + arow["b"] + ")"

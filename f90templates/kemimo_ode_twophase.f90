@@ -9,7 +9,7 @@ contains
     use kemimo_rates
     implicit none
     real*8,intent(inout)::n(nmols), dt
-    real*8 :: ni(nmols)
+    real*8 :: ni(nmols), kalli(nrea)
     integer::i, ncount
 
     !DLSODES variables
@@ -17,8 +17,8 @@ contains
     integer,parameter::lrw=20+16*nmols+3*nmols**2
     integer,parameter::liw=30
     !tolerances
-    real*8,parameter::rtol(nmols) = 1d-5
-    real*8,parameter::atol(nmols) = 1d-20
+    real*8,parameter::rtol(nmols) = 1d-6
+    real*8,parameter::atol(nmols) = 1d-22
     integer::neqa(1),itol,itask,istate,iopt,mf
     integer::iwork(liw)
     real*8::rwork(lrw),tloc
@@ -70,6 +70,7 @@ contains
 
     ! store initial abundances:
     ni(:) = n(:)
+    kalli(:) = kall(:)
     ! count attempts
     ncount = 0
     do
@@ -84,6 +85,7 @@ contains
           cycle
        elseif(istate==2) then
           !success integration
+          kall(:) = kalli(:)
           exit
        elseif(istate==-5) then
           !problem with sparsity, need to recompute
@@ -99,6 +101,16 @@ contains
           print *, 'reducing dt'
           n(:) = ni(:)
           dt = dt / 3d0
+          istate = 1
+       elseif(istate==-4) then
+          ncount = ncount + 1 
+          !problem with input.  
+          if (ncount > 10) then
+            print *, 'Attempted 10 times with state -3 from solver. Giving up.'
+            stop
+          endif 
+          kall(:) = kall(:) + 1d-25
+          n(:) = ni(:)
           istate = 1
        else
           !unknonw problem stop program
@@ -119,7 +131,7 @@ contains
     implicit none
     integer::neq,i
     real*8::n(neq),tt,dn(neq)
-    real*8:: flux
+    real*8:: flux, n_ice_tot, n_ice_H2
     integer:: layer, rtype
     real*8 :: Nsurface, Nmantle
     real*8 :: alpha, dnsdt, R
@@ -137,40 +149,43 @@ contains
       !   3,4: reactants
       !   5,6,7,8: products
       !   9: reaction type (see utils.py for getReactionType function)
-        flux = kall(reactionArray(i,1)) * n(reactionArray(i,3)) * n(reactionArray(i,4))
-        layer = reactionArray(i,2)
-        rtype = reactionArray(i,9)
+      flux = kall(reactionArray(i,1)) * n(reactionArray(i,3)) * n(reactionArray(i,4))
+      layer = reactionArray(i,2)
+      rtype = reactionArray(i,9)
 
-        ! Ignore if the layer is zero (gas-phase)
-        if (layer > 0) then
-          ! two-phase:
-          if (n(idx_surface_mask)*layerThickness > 1d0) then		
-            ! limit thermal desorption, CR desorption and photoprocesses to *layerthickness* of mly:
-            if (rtype == 1 .or. rtype == 2 .or. rtype == 3 .or. rtype == 4) then
-              flux = flux * min(1d0, layerThickness/n(idx_surface_mask))
-            ! 2body reactions:
-            elseif (rtype == 5) then 
-              if (n(idx_surface_mask) > 1d0) then
-                ! From sect. 7 of Cuppen+2017, with minor adjustments:
-                flux = flux / (n(idx_surface_mask))
-              endif
-            endif
+      if (layer == 1) then
+        if ((rtype == 4) .or. (rtype == 3)) then 
+          if ((reactionArray(i,3) == idx_o_H2_0001) .or. (reactionArray(i,3) == idx_p_H2_0001)) then
+           flux = flux / (max(n(idx_surface_mask)*ndns, ndns) + n(idx_o_H2_0001) + n(idx_p_H2_0001))
+          else
+           flux = flux / max(n(idx_surface_mask)*ndns, ndns)
           endif
-
+        elseif (rtype == 5) then
+          if ((reactionArray(i,3) == idx_o_H2_0001) .or. (reactionArray(i,3) == idx_p_H2_0001)) then
+           flux = flux / max(1d0, (n(idx_surface_mask) + (n(idx_o_H2_0001) + n(idx_p_H2_0001))/ndns))
+          elseif ((reactionArray(i,4) == idx_o_H2_0001) .or. (reactionArray(i,4) == idx_p_H2_0001)) then
+           flux = flux / max(1d0, (n(idx_surface_mask) + (n(idx_o_H2_0001) + n(idx_p_H2_0001))/ndns))
+          else
+           flux = flux / max(1d0, n(idx_surface_mask))
+          endif
         endif
-        
-        dn(reactionArray(i,3)) = dn(reactionArray(i,3)) - flux
-        dn(reactionArray(i,4)) = dn(reactionArray(i,4)) - flux
-        dn(reactionArray(i,5)) = dn(reactionArray(i,5)) + flux
-        dn(reactionArray(i,6)) = dn(reactionArray(i,6)) + flux
-        dn(reactionArray(i,7)) = dn(reactionArray(i,7)) + flux
-        dn(reactionArray(i,8)) = dn(reactionArray(i,8)) + flux
+      endif
+
+
+      dn(reactionArray(i,3)) = dn(reactionArray(i,3)) - flux
+      dn(reactionArray(i,4)) = dn(reactionArray(i,4)) - flux
+      dn(reactionArray(i,5)) = dn(reactionArray(i,5)) + flux
+      dn(reactionArray(i,6)) = dn(reactionArray(i,6)) + flux
+      dn(reactionArray(i,7)) = dn(reactionArray(i,7)) + flux
+      dn(reactionArray(i,8)) = dn(reactionArray(i,8)) + flux
 
     end do
 
     dn(idx_dummy) = 0d0
 
     do i=surface_start, surface_end
+      if (i == idx_o_H2_0001) cycle
+      if (i == idx_p_H2_0001) cycle
       dn(idx_surface_mask) = dn(idx_surface_mask) + dn(i)
     enddo
 
@@ -204,7 +219,7 @@ contains
     implicit none
     integer::neq, j, ian, jan, i, ii, offset, layer, rtype
     real*8::tt, n(neq), pdj(neq)
-    real*8:: flux
+    real*8:: flux, n_ice_tot, n_ice_H2
     real*8 :: Nsurface, Nmantle
     real*8 :: alpha, dnsdt, R
 
@@ -251,24 +266,23 @@ contains
       else
         flux = 0d0
       endif
-      
 
-      ! Ignore if the layer is zero (gas-phase)
-      if (layer > 0) then
-        ! two-phase:
-        if (n(idx_surface_mask)*layerThickness > 1d0) then		
-          ! limit thermal desorption, CR desorption and photoprocesses to *layerthickness* of mly:
-          if (rtype == 1 .or. rtype == 2 .or. rtype == 3 .or. rtype == 4) then
-            flux = flux * min(1d0, layerThickness/n(idx_surface_mask))
-          ! 2body reactions:
-          elseif (rtype == 5) then 
-            if (n(idx_surface_mask) > 1d0) then
-              ! From sect. 7 of Cuppen+2017, with minor adjustments:
-              flux = flux / (n(idx_surface_mask))
-            endif
+      if (layer == 1) then
+        if ((rtype == 4) .or. (rtype == 3)) then 
+          if ((reactionArray(i,3) == idx_o_H2_0001) .or. (reactionArray(i,3) == idx_p_H2_0001)) then
+           flux = flux / (max(n(idx_surface_mask)*ndns, ndns) + n(idx_o_H2_0001) + n(idx_p_H2_0001))
+          else
+           flux = flux / max(n(idx_surface_mask)*ndns, ndns)
+          endif
+        elseif (rtype == 5) then
+          if ((reactionArray(i,3) == idx_o_H2_0001) .or. (reactionArray(i,3) == idx_p_H2_0001)) then
+           flux = flux / max(1d0, (n(idx_surface_mask) + (n(idx_o_H2_0001) + n(idx_p_H2_0001))/ndns))
+          elseif ((reactionArray(i,4) == idx_o_H2_0001) .or. (reactionArray(i,4) == idx_p_H2_0001)) then
+           flux = flux / max(1d0, (n(idx_surface_mask) + (n(idx_o_H2_0001) + n(idx_p_H2_0001))/ndns))
+          else
+           flux = flux / max(1d0, n(idx_surface_mask))
           endif
         endif
-
       endif
 
 
@@ -284,6 +298,8 @@ contains
     pdj(idx_dummy) = 0d0
 
     do i=surface_start, surface_end
+      if (i == idx_o_H2_0001) cycle
+      if (i == idx_p_H2_0001) cycle
       pdj(idx_surface_mask) = pdj(idx_surface_mask) + pdj(i)
     enddo
     pdj(idx_surface_mask) = pdj(idx_surface_mask) * kall(nrea)

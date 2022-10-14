@@ -15,7 +15,7 @@ import numpy as np
 from shutil import copyfile
 import time
 import copy
-from multiprocessing import Pool
+from multiprocessing import Pool, set_forkserver_preload
 import multiprocessing as mp
 
 import itertools
@@ -27,8 +27,9 @@ class database:
     # database class constructor
 
     def __init__(self, datadir="./standard_data/", nlayers=2, layerThickness=4.0,
-                 useCompetition=True, ignoreMissingH=True, ignoreMissingEbind=True, 
-                 allSpeciesToDust=False, include_H2=True, limit2body=True):
+                 ignoreMissingH=True, ignoreMissingEbind=True, 
+                 allSpeciesToDust=False, include_H2=True, limit2body=True, respectGasphaseLimits=True,
+                 multiprocessing=True, doSwap=False, H2spin=True, encounterDesorption=False):
         '''
             nlayers is the number of ice layers to consider, which will be hardcoded in the ODE system.
             layerThickness is the thickness of one individual layer in mly.
@@ -37,16 +38,24 @@ class database:
             nlayers: the number of ice layer (2 in a three-phase model)
             layer thickness: the thickness of the *surface* layer in mly
         '''
-        self.useCompetition = useCompetition
         self.layerThickness = layerThickness
+        # do (physical) swapping between surface and mantle:
+        self.doSwap=doSwap
         # Include H2 formation in network or keep static?
         self.include_H2 = include_H2
+        # include H2 spin (this flag is necessary for kemimo_ode where o/p H2 is hardcoded)
+        self.H2spin = H2spin
         # Limit 2body reactions to Ea only or use combinatorics to look for reactions?
         self.limit2body = limit2body
         # allSpeciesToDust: Add all species present in the gasphase to the dust phase.
         self.allSpeciesToDust = allSpeciesToDust
+        # Respect (lower) gasphase limits. Many reactions in KIDA limited to > 10 K. This will lower the limit to 5 K.
+        self.respectGasphaseLimits = respectGasphaseLimits  #  USE AT OWN RISK
         
         self.datadir = datadir
+
+        # multiprocessing
+        self.multiprocessing = multiprocessing
         # *****************
         # fileSpecies: name of the file with list of species
         # fileEbin: name of the file species binding energies
@@ -184,7 +193,7 @@ class database:
 
         print("****************************************************")
         if nlayers == 6:
-            print("Running 7-phase model")
+            print("Running 7-phase model. This is in alpha stage.")
             self.nlayers = nlayers
         elif nlayers == 2:
             print("Running three phase model")
@@ -194,12 +203,19 @@ class database:
             self.nlayers = 1
             print("Running with single surface layer (bulk ice)")
 
+
         # use combinatorics to find reactions
         findReactionsStart = time.time()
         if self.limit2body == False:
             self.findReactions()
         else:
             self.loadReactions()
+
+        # add Hincelin+2015 H2 encounter-desorption?
+        if encounterDesorption:
+            self.addEncounterDesorption()
+
+
 
         # add photorates using reactions from yield file
         self.addPhotoRates()
@@ -337,8 +353,8 @@ class database:
 
         # loop on data to search for yields
         for species in [x for x in self.species if not x.isGas]:
-            if species.namebase == 'H2' or species.namebase == 'Hc':
-                continue
+            #if species.namebase == 'H2' or species.namebase == 'Hc':
+            #    continue
             # get reactants and products from the species dictionary
             RRs = [species]
             try:
@@ -549,11 +565,11 @@ class database:
             # skip KIDA comment
             if srow.startswith("!"):
                 continue
-            
+
             # parse row line for reaction
             # self.species is needed to get only reactions between
             # known species
-            rea = reactionGas(srow, self.species, self.mass)
+            rea = reactionGas(srow, self.species, self.mass, self.respectGasphaseLimits)
 
             # skip reactions with species not included in the list of species
             # but also check if reaction has some species that could be missing
@@ -569,7 +585,7 @@ class database:
                 # First add photodissociation for all relevant reactions present in gas-phase (KIDA)
 
                 # Ignore CH3OH (special treatment)
-                if rea.reactants[0].name in ['CH3OH_gas', 'CH2DOH_gas', 'CH3OD_gas', 'H2O_gas', 'HDO_gas', 'D2O_gas']:
+                if rea.reactants[0].name in ['CH3OH_gas', 'CH2DOH_gas', 'CH3OD_gas']: #, 'H2O_gas', 'HDO_gas', 'D2O_gas']:
                     addReaction = False
                     #continue
 
@@ -628,102 +644,100 @@ class database:
 
         # #######################################################
         # NOTE: exception for CH3OH, following Karin Oberg et al (2009) branching ratios 5:1:1
-        k_CH3OH_total = 1.69e-9  # KIDA total gasphase alpha.
-        k_H2O_total = 8.01e-10
-        #P_H2O_isrf = 5.4e-3
-        #P_H2O_cr = 4.7e-3
-        #P_CH3OH_isrf = P_H2O_isrf * (k_CH3OH_total/k_H2O_total)
-        #P_CH3OH_cr = P_H2O_cr * (k_CH3OH_total/k_H2O_total)
-        
-        CH3OH_gamma = 2.76  # Mix of KIDA values
+        if 'CH3OH_gas' in speciesDict.keys():
+            k_CH3OH_total = 1.69e-9  # KIDA total gasphase alpha.
+            k_H2O_total = 8.01e-10
+            #P_H2O_isrf = 5.4e-3
+            #P_H2O_cr = 4.7e-3
+            #P_CH3OH_isrf = P_H2O_isrf * (k_CH3OH_total/k_H2O_total)
+            #P_CH3OH_cr = P_H2O_cr * (k_CH3OH_total/k_H2O_total)
+            
+            CH3OH_gamma = 2.76  # Mix of KIDA values
 
-        # CH3OH -> CH2OH + H
-        RRs = [layeredSpeciesDict['CH3OH_{:04d}'.format(i)]]
-        PPs = [layeredSpeciesDict['CH2OH_{:04d}'.format(
-            i)], layeredSpeciesDict['H_{:04d}'.format(i)]]
-        srea = reaction(RRs, PPs, self.Ea, self.barrierWidths, self.Bratios, yieldPD=-
-                        1.0, gamma=CH3OH_gamma, alpha=(5.0/7.0)*k_CH3OH_total)
-        srea.layer = i
+            # CH3OH -> CH2OH + H
+            RRs = [layeredSpeciesDict['CH3OH_{:04d}'.format(i)]]
+            PPs = [layeredSpeciesDict['CH2OH_{:04d}'.format(
+                i)], layeredSpeciesDict['H_{:04d}'.format(i)]]
+            srea = reaction(RRs, PPs, self.Ea, self.barrierWidths, self.Bratios, yieldPD=-
+                            1.0, gamma=CH3OH_gamma, alpha=(5.0/7.0)*k_CH3OH_total)
+            srea.layer = i
+            self.reactions.append(srea)
 
-        # CH3OH -> CH3O + H
-        self.reactions.append(srea)
-        PPs = [layeredSpeciesDict['CH3O_{:04d}'.format(
-            i)], layeredSpeciesDict['H_{:04d}'.format(i)]]
-        srea = reaction(RRs, PPs, self.Ea, self.barrierWidths, self.Bratios,
-                        yieldPD=-1.0, gamma=CH3OH_gamma, alpha=(1.0/7.0)*k_CH3OH_total)
-        srea.layer = i
+            # CH3OH -> CH3O + H
+            PPs = [layeredSpeciesDict['CH3O_{:04d}'.format(
+                i)], layeredSpeciesDict['H_{:04d}'.format(i)]]
+            srea = reaction(RRs, PPs, self.Ea, self.barrierWidths, self.Bratios,
+                            yieldPD=-1.0, gamma=CH3OH_gamma, alpha=(1.0/7.0)*k_CH3OH_total)
+            srea.layer = i
+            self.reactions.append(srea)
 
-        # CH3OH -> CH3 + OH
-        self.reactions.append(srea)
-        PPs = [layeredSpeciesDict['CH3_{:04d}'.format(
-            i)], layeredSpeciesDict['OH_{:04d}'.format(i)]]
-        srea = reaction(RRs, PPs, self.Ea, self.barrierWidths, self.Bratios,
-                        yieldPD=-1.0, gamma=CH3OH_gamma, alpha=(1.0/7.0)*k_CH3OH_total)
-        srea.layer = i
+            # CH3OH -> CH3 + OH
+            PPs = [layeredSpeciesDict['CH3_{:04d}'.format(
+                i)], layeredSpeciesDict['OH_{:04d}'.format(i)]]
+            srea = reaction(RRs, PPs, self.Ea, self.barrierWidths, self.Bratios,
+                            yieldPD=-1.0, gamma=CH3OH_gamma, alpha=(1.0/7.0)*k_CH3OH_total)
+            srea.layer = i
+            self.reactions.append(srea)
 
-        self.reactions.append(srea)
+        if 'CH3OD_gas' in speciesDict.keys():
+            ####
+            # CH3OD -> CH2OD + H
+            RRs = [layeredSpeciesDict['CH3OD_{:04d}'.format(i)]]
+            PPs = [layeredSpeciesDict['CH2OD_{:04d}'.format(
+                i)], layeredSpeciesDict['H_{:04d}'.format(i)]]
+            srea = reaction(RRs, PPs, self.Ea, self.barrierWidths, self.Bratios, yieldPD=-
+                            1.0, gamma=CH3OH_gamma, alpha=(5.0/7.0)*k_CH3OH_total)
+            srea.layer = i
+            self.reactions.append(srea)
 
-        ####
-        # CH3OD -> CH2OD + H
-        RRs = [layeredSpeciesDict['CH3OD_{:04d}'.format(i)]]
-        PPs = [layeredSpeciesDict['CH2OD_{:04d}'.format(
-            i)], layeredSpeciesDict['H_{:04d}'.format(i)]]
-        srea = reaction(RRs, PPs, self.Ea, self.barrierWidths, self.Bratios, yieldPD=-
-                        1.0, gamma=CH3OH_gamma, alpha=(5.0/7.0)*k_CH3OH_total)
-        srea.layer = i
+            # CH3OD -> CH3O + D
+            PPs = [layeredSpeciesDict['CH3O_{:04d}'.format(
+                i)], layeredSpeciesDict['D_{:04d}'.format(i)]]
+            srea = reaction(RRs, PPs, self.Ea, self.barrierWidths, self.Bratios,
+                            yieldPD=-1.0, gamma=CH3OH_gamma, alpha=(1.0/7.0)*k_CH3OH_total)
+            srea.layer = i
+            self.reactions.append(srea)
 
-        # CH3OD -> CH3O + D
-        self.reactions.append(srea)
-        PPs = [layeredSpeciesDict['CH3O_{:04d}'.format(
-            i)], layeredSpeciesDict['D_{:04d}'.format(i)]]
-        srea = reaction(RRs, PPs, self.Ea, self.barrierWidths, self.Bratios,
-                        yieldPD=-1.0, gamma=CH3OH_gamma, alpha=(1.0/7.0)*k_CH3OH_total)
-        srea.layer = i
+            # CH3OD -> CH3 + OD
+            PPs = [layeredSpeciesDict['CH3_{:04d}'.format(
+                i)], layeredSpeciesDict['OD_{:04d}'.format(i)]]
+            srea = reaction(RRs, PPs, self.Ea, self.barrierWidths, self.Bratios,
+                            yieldPD=-1.0, gamma=CH3OH_gamma, alpha=(1.0/7.0)*k_CH3OH_total)
+            srea.layer = i
+            self.reactions.append(srea)
+        if 'CH2DOH_gas' in speciesDict.keys():   
+            ####
+            # CH2DOH -> CH2OH + D
+            RRs = [layeredSpeciesDict['CH2DOH_{:04d}'.format(i)]]
+            PPs = [layeredSpeciesDict['CH2OH_{:04d}'.format(
+                i)], layeredSpeciesDict['D_{:04d}'.format(i)]]
+            srea = reaction(RRs, PPs, self.Ea, self.barrierWidths, self.Bratios, yieldPD=-
+                            1.0, gamma=CH3OH_gamma, alpha=(1.0/3.0 * 5.0/7.0)*k_CH3OH_total)
+            srea.layer = i
 
-        # CH3OD -> CH3 + OD
-        self.reactions.append(srea)
-        PPs = [layeredSpeciesDict['CH3_{:04d}'.format(
-            i)], layeredSpeciesDict['OD_{:04d}'.format(i)]]
-        srea = reaction(RRs, PPs, self.Ea, self.barrierWidths, self.Bratios,
-                        yieldPD=-1.0, gamma=CH3OH_gamma, alpha=(1.0/7.0)*k_CH3OH_total)
-        srea.layer = i
+            self.reactions.append(srea)
+            # CH2DOH -> CHDOH + H
+            PPs = [layeredSpeciesDict['CHDOH_{:04d}'.format(i)], layeredSpeciesDict['H_{:04d}'.format(i)]]
+            srea = reaction(RRs, PPs, self.Ea, self.barrierWidths, self.Bratios, yieldPD=-
+                            1.0, gamma=CH3OH_gamma, alpha=(2.0/3.0  * 5.0/7.0)*k_CH3OH_total)
+            srea.layer = i
+            self.reactions.append(srea)
 
-        self.reactions.append(srea)
+            # CH2DOH -> CH2DO + H
+            PPs = [layeredSpeciesDict['CH2DO_{:04d}'.format(
+                i)], layeredSpeciesDict['H_{:04d}'.format(i)]]
+            srea = reaction(RRs, PPs, self.Ea, self.barrierWidths, self.Bratios,
+                            yieldPD=-1.0, gamma=CH3OH_gamma, alpha=(1.0/7.0)*k_CH3OH_total)
+            srea.layer = i
+            self.reactions.append(srea)
 
-        ####
-        # CH2DOH -> CH2OH + D
-        RRs = [layeredSpeciesDict['CH2DOH_{:04d}'.format(i)]]
-        PPs = [layeredSpeciesDict['CH2OH_{:04d}'.format(
-            i)], layeredSpeciesDict['D_{:04d}'.format(i)]]
-        srea = reaction(RRs, PPs, self.Ea, self.barrierWidths, self.Bratios, yieldPD=-
-                        1.0, gamma=CH3OH_gamma, alpha=(1.0/3.0 * 5.0/7.0)*k_CH3OH_total)
-        srea.layer = i
-
-        # CH2DOH -> CHDOH + H
-        RRs = [layeredSpeciesDict['CH3OH_{:04d}'.format(i)]]
-        PPs = [layeredSpeciesDict['CHDOD_{:04d}'.format(
-            i)], layeredSpeciesDict['H_{:04d}'.format(i)]]
-        srea = reaction(RRs, PPs, self.Ea, self.barrierWidths, self.Bratios, yieldPD=-
-                        1.0, gamma=CH3OH_gamma, alpha=(2.0/3.0  * 5.0/7.0)*k_CH3OH_total)
-        srea.layer = i
-
-        # CH2DOH -> CH2DO + H
-        self.reactions.append(srea)
-        PPs = [layeredSpeciesDict['CH2DO_{:04d}'.format(
-            i)], layeredSpeciesDict['H_{:04d}'.format(i)]]
-        srea = reaction(RRs, PPs, self.Ea, self.barrierWidths, self.Bratios,
-                        yieldPD=-1.0, gamma=CH3OH_gamma, alpha=(1.0/7.0)*k_CH3OH_total)
-        srea.layer = i
-
-        # CH2DOH -> CH3 + OH
-        self.reactions.append(srea)
-        PPs = [layeredSpeciesDict['CH2D_{:04d}'.format(
-            i)], layeredSpeciesDict['OH_{:04d}'.format(i)]]
-        srea = reaction(RRs, PPs, self.Ea, self.barrierWidths, self.Bratios,
-                        yieldPD=-1.0, gamma=CH3OH_gamma, alpha=(1.0/7.0)*k_CH3OH_total)
-        srea.layer = i
-
-        self.reactions.append(srea)
+            # CH2DOH -> CH2D + OH
+            PPs = [layeredSpeciesDict['CH2D_{:04d}'.format(
+                i)], layeredSpeciesDict['OH_{:04d}'.format(i)]]
+            srea = reaction(RRs, PPs, self.Ea, self.barrierWidths, self.Bratios,
+                            yieldPD=-1.0, gamma=CH3OH_gamma, alpha=(1.0/7.0)*k_CH3OH_total)
+            srea.layer = i
+            self.reactions.append(srea)
 
     # *****************
     # load reaction from KIDA database and compare with a set of reactions
@@ -782,8 +796,11 @@ class database:
     def preproc(self):
         # prepare ODE
         if self.nlayers == 2:
-            if self.include_H2:
+            if self.include_H2 and self.H2spin:
                 copyfile('./f90templates/kemimo_ode_include_H2.f90', './kemimo_ode.f90')
+                copyfile('./f90templates/kemimo_include_H2.f90', './kemimo.f90')
+            elif self.include_H2 and not self.H2spin:
+                copyfile('./f90templates/kemimo_ode_include_H2_nospin.f90', './kemimo_ode.f90')
                 copyfile('./f90templates/kemimo_include_H2.f90', './kemimo.f90')
             else:
                 copyfile('./f90templates/kemimo_ode_fixed_H2.f90', './kemimo_ode.f90')
@@ -793,10 +810,20 @@ class database:
         else:
             copyfile('./f90templates/kemimo_ode_twophase.f90',
                      './kemimo_ode.f90')
-            copyfile('./f90templates/kemimo_include_H2.f90',
+            copyfile('./f90templates/kemimo_twophase.f90',
                      './kemimo.f90')
             copyfile('./f90templates/kemimo_flux_twophase.f90',
                      './kemimo_flux.f90')
+
+                
+        # copy remaining f90 files if missing:
+        files = ["kemimo_commons.f90", "kemimo_sticking.f90", \
+            "kemimo_gas_rates.f90", "kemimo_dust_rates.f90", "kemimo_reactionarray.f90",\
+                "kemimo_rates.f90", "kemimo_swappingrates.f90"]
+
+        for fname in files:
+            if not os.path.exists(fname):
+                copyfile('./f90templates/%s' % fname, './%s' % fname)            
 
         # prepare COMMONS
         doPP("kemimo_commons.f90", {"ARRAYSIZE": self.getArraySizes(),
@@ -808,13 +835,17 @@ class database:
 
 
         # prepare SWAPPINGRATES
-        #doPP("kemimo_swappingrates.f90", {
-        #     "SWAPPINGRATES": self.getSwappingRates()})
+        if self.doSwap:
+           doPP("kemimo_swappingrates.f90", {
+             "SWAPPINGRATES": self.getSwappingRates()})
         
         # prepare STICKINGRATES
         doPP("kemimo_sticking.f90", {
              "STICKING": self.getSticking()})
 
+        # prepare EBIND
+        #doPP("kemimo_ebind.f90", {
+        #     "EBIND": self.getEbind()})
 
         # prepare RATES
         doPP("kemimo_dust_rates.f90", {
@@ -1278,18 +1309,26 @@ class database:
         # We limit our subprocess count to 4. May not be worth it at all in this routine (inherited from findReactions)
         ncpu=np.min([ncpu, 4])
 
-        p=Pool(ncpu)
-        # loop on combinations to find reactions
-        result = p.map(findReactions_parser, list(zip(
-            combinations, itertools.repeat(combinations), itertools.repeat(self.Ea), itertools.repeat(self.barrierWidths), itertools.repeat(self.Bratios), itertools.repeat(self.include_H2))))
+        if self.multiprocessing:
+            p=Pool(ncpu)
+            # loop on combinations to find reactions
+            result = p.map(findReactions_parser, list(zip(
+                combinations, itertools.repeat(combinations), itertools.repeat(self.Ea), itertools.repeat(self.barrierWidths), itertools.repeat(self.Bratios), itertools.repeat(self.include_H2))))
+            p.close()
+            p.join()
+        else:
+            result = []
+            for i in range(len(combinations)):
+                res = findReactions_parser(list([combinations[i], combinations, self.Ea, self.barrierWidths, self.Bratios, self.include_H2]))
+                result.append(res)
+
         for r in result:
             if r is None:
                 continue
             for rr in r:
                 reactions.append(rr)
 
-        p.close()
-        p.join()
+
         print("Created reactions from combinations")
         # ------------------------------------------
         # create spin variants for species where this is included in KIDA, as we need this information when loading from Ea.dat:
@@ -1315,36 +1354,54 @@ class database:
         # Add Ea reactions to combinations
         for ni, entry in enumerate(self.Ea):
             isSpinSpecies = False
-            nSpinSpecies = 0
+            nSpinIsomers = 0
             rs = list(entry["reactants"])
             ps = list(entry["products"])
-
+            entry_spinSpecies = []
+            spinDesignator1, spinDesignator2 = [], []
             for i, species in enumerate(rs+ps):
                 if species in spinSpecies.keys():
                     isSpinSpecies = True
-                    nSpinSpecies = len(spinSpecies[species])
-                    # If one spinSpecies, simply change name and move on
-                    if nSpinSpecies == 1:
+                
+                    nSpinIsomers = len(spinSpecies[species])
+                    # If one spinSpecies, simply change name and move on. 
+                    if nSpinIsomers == 1:
                         if i < 2:
                             # i < 2: update reactants:
                             rs[i] = spinSpecies[species][0]
                         else:
                             # update products:
                             ps[i-2] = spinSpecies[species][0]
-                    elif nSpinSpecies == 2:
-                        rs2, ps2 = list(entry["reactants"]), list(entry["products"])
+                    elif nSpinIsomers == 2:
+                        if len(entry_spinSpecies) == 0:
+                            rs2, ps2 = list(entry["reactants"]), list(entry["products"])
+                        entry_spinSpecies.append(species)
                         if i < 2:
                             # i < 2: update reactants:
                             rs[i] = spinSpecies[species][0]
                             rs2[i] = spinSpecies[species][1]
+                            spinDesignator1.append(rs[i].strip("_"+species))
+                            spinDesignator2.append(rs2[i].strip("_"+species))
                         else:
                             # update products:
                             ps[i-2] = spinSpecies[species][0]
                             ps2[i-2] = spinSpecies[species][1]
+                            spinDesignator1.append(ps[i-2].strip("_"+species))
+                            spinDesignator2.append(ps2[i-2].strip("_"+species))
                     else:
                         print("More than two spin variants of species. Not supported for now")
                 else:
                     continue
+
+            # Perform check that we have no spin conversion:
+            if len(spinDesignator1) > 1:
+                if spinDesignator1[0] != spinDesignator1[1]:
+                    print("Error. A spin conversion occured. Check that this is not problematic.")
+                    print(entry, spinDesignator1)
+            if len(spinDesignator2) > 1:
+                if spinDesignator2[0] != spinDesignator2[1]:
+                    print("Error. A spin conversion occured. Check that this is not problematic.")
+                    print(entry, spinDesignator2)
 
 
             # Perform check to see if reaction is already present
@@ -1428,7 +1485,7 @@ class database:
             
             # ------------------------------------------
             # If another spin variant exists:
-            if isSpinSpecies and nSpinSpecies == 2:
+            if isSpinSpecies and nSpinIsomers == 2:
                 # Perform check to see if reaction is already present
                 spsp = "__".join(
                     sorted([s for s in rs2])+sorted([s for s in ps2]))
@@ -1534,13 +1591,19 @@ class database:
         tempspecies = copy.deepcopy(self.species)
         ncpu = int(mp.cpu_count())
         # We limit our subprocess count to 36.
-        ncpu = np.min([ncpu, 20])
-        print("Multiprocessing with %i threads" % ncpu)
+        if self.multiprocessing:
+            ncpu = np.min([ncpu, 20])
+            print("Multiprocessing with %i threads" % ncpu)
 
-        p = Pool(ncpu)
-        result = p.map(findCombinations_parser, list(zip(
-            tempspecies, itertools.repeat(tempspecies))))
-        print("Found combinations")
+            p = Pool(ncpu)
+            result = p.map(findCombinations_parser, list(zip(
+                tempspecies, itertools.repeat(tempspecies))))
+            print("Found combinations")
+        else:
+            result = []
+            for i in range(len(tempspecies)):
+                res = findCombinations_parser(tempspecies[i], tempspecies)
+                result.append(res)
 
         for r in result:
             if r is None:
@@ -1563,15 +1626,23 @@ class database:
         print("Matched combinations")
         reactions = []
         # loop on combinations to find reactions
-        result = p.map(findReactions_parser, list(zip(
-            combinations, itertools.repeat(combinations), itertools.repeat(self.Ea), itertools.repeat(self.barrierWidths), itertools.repeat(self.Bratios), itertools.repeat(self.include_H2))))
+        if self.multiprocessing:
+            result = p.map(findReactions_parser, list(zip(
+                combinations, itertools.repeat(combinations), itertools.repeat(self.Ea), itertools.repeat(self.barrierWidths), itertools.repeat(self.Bratios), itertools.repeat(self.include_H2))))
+            p.close()
+            p.join()
+        else:
+            result = []
+            for i in range(len(combinations)):
+                res = findCombinations_parser(combinations[i], combinations, self.Ea, self.barrierWidths, self.Bratios, self.include_H2)
+                result.append(res)
+
         for r in result:
             if r is None:
                 continue
             for rr in r:
                 reactions.append(rr)
-        p.close()
-        p.join()
+
         print("Created reactions from combinations")
 
         speciesDict = {x.dictname: x for x in self.species}
@@ -1652,6 +1723,11 @@ class database:
                 str(int(ilower_mantle))+"\n"
             arraySize += "integer,parameter::mantle_end=" + \
                 str(int(iupper_mantle))+"\n"
+            arraySize += "!do swapping? \n"
+            if self.doSwap:
+                arraySize += "logical,parameter::doSwap=.true.\n"
+            else:
+                arraySize += "logical,parameter::doSwap=.false.\n"
 
         else:
             if not self.nlayers == 7:
@@ -1685,7 +1761,7 @@ class database:
                 str(self.nGasSpecies + self.nDustSpecies + 3) + "\n"
             arraySize += "!number of dust species\n"
             arraySize += "integer,parameter::nmols_dust=" + \
-                str((self.nlayers*self.nDustSpecies)) + "\n"
+                str(self.nlayers*self.nDustSpecies) + "\n"
             arraySize += "!number of reactions (nlayer*dust+gas)\n"
             arraySize += "integer,parameter::nrea=" + str(nrea+1) + "\n"
             arraySize += "!number of unique reactions (dust+gas)\n"
@@ -1716,7 +1792,11 @@ class database:
             arraySize += mstarts_str
             arraySize += mends_str
 
-        arraySize += "integer,parameter:: CO_desorption_idx=" + str(self.CO_photodesorption) + "\n"
+        try:
+            arraySize += "integer,parameter:: CO_desorption_idx=" + str(self.CO_photodesorption) + "\n"
+        except AttributeError:
+            # exception in case CO photodesorption is not present.
+            pass
 
         return arraySize
 
@@ -1741,6 +1821,7 @@ class database:
             return "self.speciesNames = (" \
                    + ", &\n".join(["\"" + fillSpaces(x.name, maxlen)
                                    + "\"" for x in self.species]) + ")"
+
 
     # ************************
     # get a matrix with reaction idx for each species to be used in the JAC loop
@@ -2114,10 +2195,14 @@ class database:
     def getSwappingRates(self, ratio = 0.8):
         # We assume gas-phase comes first in the species list, need ofset for species
         offset = self.nGasSpecies
+        speciesDict = {x.dictname: x for x in self.species}
+
         # constants and parameters
         kb = 1.38064852e-16  # Boltzmann constant, erg/K
         mp = 1.6726219e-24  # proton mass, g
         Ns = 1.5e15  # Number of sites / cm2
+        species_specific = ['H', 'H2', 'o_H2', 'p_H2', 'C', 'N', 'O', 'CO', 'CO2', 'DCN', 'DNC', 'HCN', 'HNC', 'HCO', 'DCO']
+        species_H2O = speciesDict['H2O']
         rates = ""
         for i, s in enumerate(self.species):
             if s.isGas:
@@ -2125,8 +2210,14 @@ class database:
             if s.Eice == None:
                 continue
             # Frequency from harmonic oscillator approximation
-            nu0 = sqrt(2e0 * Ns * s.Eice * kb / pi**2 / (s.mass*mp))
-            rate = strF90(nu0) + "*exp(-" + strF90(s.Eice*ratio) + "*invTd)"
+            if s.namebase in species_specific:
+                nu0 = sqrt(2e0 * Ns * s.Eice * kb / pi**2 / (s.mass*mp))
+                #rate = strF90(nu0) + "*exp(-" + strF90(s.Eice*ratio) + "*invTd)"
+                rate = strF90(nu0) + "*exp(-" + strF90(max([550.0, s.Eice*0.8])) + "*invTd)"
+            else:
+                nu0 = sqrt(2e0 * Ns * species_H2O.Eice * kb / pi**2 / (s.mass*mp))
+                rate = strF90(nu0) + "*exp(-" + strF90(species_H2O.Eice*ratio) + "*invTd)"
+                
 
             rates += "kswap(%i) = " % (s.idx + 1 - offset) + rate + "\n"
 
@@ -2174,6 +2265,69 @@ class database:
 
         return lines
 
+
+    # ***********************************
+    def getEbind(self):
+        # We assume gas-phase comes first in the species list, need ofset for species
+        offset = self.nGasSpecies
+        # following furuya+2015
+        Edes_H2 = 23.0
+        Edes_H2_water = 450.0
+        #
+
+        lines = ""
+        for i, s in enumerate(self.species):
+            if s.isGas:
+                continue
+            if s.Eice == None:
+                continue
+
+            stick = strF90(s.Eice) + " * (1d0 - H2_coverage) + H2_coverage * (" +  strF90(s.Eice) + " * %.1f / %.1f )" %(Edes_H2, Edes_H2_water)
+            lines += "ebind(%i) = " % (s.idx + 1 - offset) + stick + "\n"
+
+        return lines
+
+    # ***********************************
+    # function to add special encounter desorption for H2. Hincelin+2015. Messy.
+    def addEncounterDesorption(self):
+        if self.H2spin:
+            RRs = []
+            PPs = []
+            for s in self.species:
+                if s.name == 'o_H2_0001':
+                    RRs.append(s)
+                    RRs.append(s)
+                    PPs.append(s)
+                if s.name == 'o_H2_gas':
+                    PPs.append(s)
+            if len(RRs) == 2 and len(PPs) == 2:
+                rea = reaction(RRs, PPs, self.Ea, self.barrierWidths, self.Bratios, yieldPD=-43)
+                self.reactions.append(rea)
+            RRs = []
+            PPs = []
+            for s in self.species:
+                if s.name == 'p_H2_0001':
+                    RRs.append(s)
+                    RRs.append(s)
+                    PPs.append(s)
+                if s.name == 'p_H2_gas':
+                    PPs.append(s)
+            if len(RRs) == 2 and len(PPs) == 2:
+                rea = reaction(RRs, PPs, self.Ea, self.barrierWidths, self.Bratios, yieldPD=-43)
+                self.reactions.append(rea)
+        else:
+            RRs = []
+            PPs = []
+            for s in self.species:
+                if s.name == 'H2_0001':
+                    RRs.append(s)
+                    RRs.append(s)
+                    PPs.append(s)
+                if s.name == 'H2_gas':
+                    PPs.append(s)
+            if len(RRs) == 2 and len(PPs) == 2:
+                rea = reaction(RRs, PPs, self.Ea, self.barrierWidths, self.Bratios, yieldPD=-43)
+                self.reactions.append(rea)
 
 # ***********************************
 def findReactions_parser(args):
@@ -2388,6 +2542,7 @@ def findCombinations_func(sp1, species):
         combinations.append({"mols": [sp1, sp2],
                              "exploded": sorted(sp1.exploded + sp2.exploded)})
     return combinations
+
 
 
 def LoopCombinations(results, combinationNames, combinations, i):

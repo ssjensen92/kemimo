@@ -214,6 +214,11 @@ class reaction:
             self.type = "photodesorption"
             self.yieldPD = 0e0
 
+        # create special treatment of yield is -43, encounter-desorption
+        if int(self.yieldPD) == -43.0:
+            self.type = "encounterdesorption"
+            self.yieldPD = 0e0
+
         reactantNames = sorted([x.dictname for x in self.reactants])
         productNames = sorted([x.dictname for x in self.products])
         # determine chemisorption types
@@ -604,6 +609,31 @@ class reaction:
                             + strF90(1e0 / (max(xdata) - min(xdata))) + ", " \
                             + strF90(max(xdata) - min(xdata)) + ", " \
                             + " &\n (/" + yf90 + "/))"
+
+
+        # Encounter-desorption following Hincelin+2015.
+        if self.type.startswith("encounter"):
+            # Rdiff
+            RR = self.reactants[0]
+            # hardcoded a ratio of 0.5 and a H2-H2 binding energy of 23 K.
+            Rdiff = "(exp(" + strF90(-440.0 * 0.5) + "*invTd)*" + strF90(nu0[0]) + ")"
+            # k_H2H2
+            joinedSum = " + ".join([Rdiff, Rdiff])
+            # Rdiff (NOTES THE CHANGE IN EDIFF):
+            Rdiff = "(exp(" + strF90(-23.0 * 0.5) + "*invTd)*" + strF90(nu0[0]) + ")"
+            Rdiff += "/Nsites"
+
+            # desorption components:
+            rate = nu_max * 3.16e-19 / 1.3e-17 * exp(-23.0 / 7e1)
+            desorption = "(variable_crflux*" + strF90(rate)
+            desorption += " + Ffuva * 1d-3"
+            desorption += " + " + strF90(nu0[0]) + \
+                "*exp(-" + str(23.0) + "*invTd))"
+
+            kappa = 0.5 
+            self.krateF90 = strF90(kappa) + \
+                "*(" + joinedSum + ")*indns"
+            self.krateF90 += " * " + desorption + " / (" + Rdiff + " + " + desorption + ")"
 
         # check if krate is set
         if self.krateF90 is None:

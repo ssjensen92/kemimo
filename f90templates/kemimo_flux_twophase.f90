@@ -59,12 +59,15 @@ contains
     implicit none
     integer::unit,ios,i
     character*50::fname
+    character(len=1000):: modelDir
 
-    !file with verbatim
+    CALL get_environment_variable("KEMIMO_WORKDIR", modelDir)
+    !file with verbatim 
     fname = "verbatim.dat"
 
     !open to read
-    open(newunit=unit, file=trim(fname), status="old", iostat=ios)
+    open(newunit=unit, file=trim(modelDir)//trim(fname), status="old", iostat=ios)
+
     !check if file exists
     if(ios/=0) then
        print *,"ERROR: problem while loading", trim(fname)
