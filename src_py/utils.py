@@ -77,6 +77,9 @@ def strF90(arg, fmt='%17.8E', lowerLimit=1e-302):
     if abs(arg) < lowerLimit:
         return "0d0"
     erg = fmt % arg
+    # if negative number, add parenthesis
+    if arg < 0:
+        erg =  "(" + erg + ")"
     return (erg.lower().replace("e", "d")).strip()
 
 

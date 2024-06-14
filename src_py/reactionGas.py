@@ -263,8 +263,8 @@ class reactionGas:
                 KK += "*" + arow["b"]
             gpart = ""
             if float(arow["c"]) != 0e0:
-                gpart = "+ 0.4767d0*" + arow["c"] + \
-                    "*sqrt(3d2/" + Tgasvar + ")"
+                gpart = "+ 0.4767d0*(" + arow["c"] + \
+                    ")*sqrt(3d2/" + Tgasvar + ")"
             KK += "*(0.62e0 " + gpart + ")"
         elif arow["formula"] == 5:
             KK = arow["a"]
@@ -272,8 +272,8 @@ class reactionGas:
                 KK += "*" + arow["b"]
             gpart = ""
             if float(arow["c"]) != 0e0:
-                gpart = "+ 0.0967e0*" + arow["c"] + \
-                    "*sqrt(3d2/" + Tgasvar + ") + ("
+                gpart = "+ 0.0967e0*(" + arow["c"] + \
+                    ")*sqrt(3d2/" + Tgasvar + ") + ("
                 gpart += arow["c"] + ")**2*28.501d0/" + Tgasvar
                 KK += "*(1d0 " + gpart + ")"
         else:
