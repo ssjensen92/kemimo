@@ -1,6 +1,4 @@
-from math import exp, sqrt, pi
 from utils import speciesToKIDA, strF90
-from mol import mol
 import sys
 
 
@@ -162,8 +160,7 @@ class reactionGas:
             # ignore specials
             if specName.upper() in specials:
                 continue
-            #species = mol(specName, atomMassList)
-            #specExploded = ("".join(species.exploded))
+
             # add to unknown species if not auto-generated from species file
             if specName not in speciesDict:
                 self.hasSpeciesFlag = False
@@ -177,8 +174,7 @@ class reactionGas:
             specName = speciesToKIDA(specName)
             if specName.upper() in specials:
                 continue
-            #species = mol(specName, atomMassList)
-            #specExploded = ("".join(species.exploded))
+
             if specName not in speciesDict:
                 self.hasSpeciesFlag = False
                 self.unknownSpecies.append(specName)

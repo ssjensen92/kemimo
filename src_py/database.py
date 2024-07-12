@@ -1,7 +1,7 @@
 from utils import tabrow, strF90, doPP, doPP_datfile, doPP_Python, latexExp, latexInt
 from utils import speciesToKIDA, getReactionType
 from mol import mol
-from mly import mly, mly_dist
+from mly import mly
 from dummy_species import dummy_species
 from reaction import reaction
 from monolayer_reaction import monolayer_reaction
@@ -15,7 +15,7 @@ import numpy as np
 from shutil import copyfile
 import time
 import copy
-from multiprocessing import Pool, set_forkserver_preload
+from multiprocessing import Pool
 import multiprocessing as mp
 
 import itertools
@@ -25,7 +25,6 @@ import itertools
 class database:
     # *****************
     # database class constructor
-
     def __init__(self, datadir="./standard_data/", nlayers=2, layerThickness=4.0,
                  ignoreMissingH=True, ignoreMissingEbind=True, 
                  allSpeciesToDust=False, include_H2=True, limit2body=True, respectGasphaseLimits=True,
@@ -40,7 +39,7 @@ class database:
         '''
         self.layerThickness = layerThickness
         # do (physical) swapping between surface and mantle:
-        self.doSwap=doSwap
+        self.doSwap = doSwap
         # Include H2 formation in network or keep static?
         self.include_H2 = include_H2
         # include H2 spin (this flag is necessary for kemimo_ode where o/p H2 is hardcoded)
@@ -77,8 +76,8 @@ class database:
         start = time.time()
         # load data from files, see details in the corresponding methods
         self.loadSpecies(fileSpecies, fileDustSpecies)
-        self.loadEbind(fileEbind)
-        self.loadDeltaH(fileDeltaH)
+        self.loadEbinds(fileEbind)
+        self.loadDeltaHs(fileDeltaH)
         self.loadAtoms(fileAtoms)
         self.loadBarriers(fileEa)
         self.loadBarrierWidths(fileBarrierWidth)
@@ -240,10 +239,8 @@ class database:
         self.computeRates()
 
         # Create surface and mantle masks
-        mly_surface = mly(seperationDistance=3e-8, radius=1e-5,
-                   layerThickness=layerThickness, name='surface')
-        mly_mantle = mly(seperationDistance=3e-8, radius=1e-5,
-                layerThickness=layerThickness, name='mantle')
+        mly_surface = mly(seperationDistance=3e-8, radius=1e-5, name='surface')
+        mly_mantle = mly(seperationDistance=3e-8, radius=1e-5, name='mantle')
         # Adjust indexing
         mly_surface.idx = self.icount
         mly_mantle.idx = self.icount+1
@@ -843,9 +840,6 @@ class database:
         doPP("kemimo_sticking.f90", {
              "STICKING": self.getSticking()})
 
-        # prepare EBIND
-        #doPP("kemimo_ebind.f90", {
-        #     "EBIND": self.getEbind()})
 
         # prepare RATES
         doPP("kemimo_dust_rates.f90", {
@@ -918,215 +912,108 @@ class database:
 
             print(("Species names loaded from " + fname))
 
-    # ************************
-    # load reactants to check  barrierless reactions from file.
-    # Species are names one per line. A line with ENDIFLE stops reading.
-    # store data into a class attribute list
-    def loadCheckBarriers(self, fname):
-        self.speciesCheckBarrier = []
-        # loop on file lines
-        for row in open(fname, "rb"):
-            # strip and replace tabs with spaces
-            srow = row.strip().decode('ascii')
-            # ENDFILE line stops reading
-            if srow == "ENDFILE":
-                break
-            if srow == "":
-                continue
-            if srow.startswith("#"):
-                continue
+    def _read_file_lines(self, fname):
+        """Generator that yields processed lines from a file."""
+        with open(fname, "rb") as file:
+            for row in file:
+                srow = row.strip().decode('ascii').replace("\t", " ")
+                if srow == "ENDFILE":
+                    break
+                if srow == "":
+                    continue
+                if srow.startswith("#"):
+                    continue
+                yield srow.split("#")[0]
 
-            # read species as gas-phase
-            self.speciesCheckBarrier.append(srow)
+    def _parse_ascii_data(self, line, data_type):
+        """Parse ascii data from a line based on the data type."""
+        arow = [x for x in line.split(" ") if x != ""]
+        print(arow)
+        if data_type == 'Ea':
+            return {"reactants": arow[:2], "products": arow[2:-1], "Ea": float(arow[-1])}
+        elif data_type == 'width':
+            return {"reactants": arow[:2], "products": arow[2:-1], "width": float(arow[-1])*1e-8}
+        elif data_type == 'ratio':
+            return {"reactants": arow[:2], "products": arow[2:-1], "ratio": float(arow[-1])}
+        elif data_type == 'yield':
+            return {"reactants": arow[:1], "products": arow[1:-1], "yield": float(arow[-1])}
+        elif data_type == 'gamma':
+            return {"reactants": arow[:1], "products": arow[1:-1], "gamma": float(arow[-1])}
+        elif data_type == 'alpha':
+            return {"reactants": arow[:1], "products": arow[1:-1], "alpha": float(arow[-1])}
+        elif data_type == 'Ebind':
+            return {"name": arow[0], "Ebare": float(arow[1]), "Eice": float(arow[2])}
+        elif data_type == 'atom':
+            return {"name": arow[0], "mass": float(arow[1])}
+        elif data_type == 'dH':
+            return {"name": arow[0], "dH": float(arow[1]) * 120.274} # Convert from KJ/mol to K
+        elif data_type == 'species':
+            return arow[0]
+        else:
+            raise ValueError(f"Unknown data type {data_type}")
+        
 
-        print(("Check barrier species names loaded from " + fname))
-
-    # ************************
-    # load binding energies from files, with format:
-    # name Ebare/K Eice/K
-    # stores data into two class attribute dictionaries, Eice and Ebare
-    # with key=species name, value=binding energy (K)
-    def loadEbind(self, fname):
-        self.Eice = dict()
-        self.Ebare = dict()
-        # loop on file lines
-        for row in open(fname, "rb"):
-            srow = row.strip().decode('ascii')
-            # ENDFILE line stops reading
-            if srow == "ENDFILE":
-                break
-            if srow == "":
-                continue
-            if srow.startswith("#"):
-                continue
-
-            # split read data
-            (name, Ebare, Eice) = [x for x in srow.split(" ") if (x != "")]
-
-            # store data into dictionary
-            self.Eice[name] = float(Eice)
-            self.Ebare[name] = float(Ebare)
-
-        print(("Binding energies loaded from " + fname))
-
-    # ************************
-    # load enthalpies from file, with format
-    # name dH/[kJ/mol]
-    # load data into a class attribute dictionary with
-    # key=names, value=enthalpy (K)
-    def loadDeltaH(self, fname):
-        self.deltaH = dict()
-        for row in open(fname, "rb"):
-            srow = row.strip().decode('ascii')
-            # ENDFILE line stops reading
-            if srow == "ENDFILE":
-                break
-            if srow == "":
-                continue
-            if srow.startswith("#"):
-                continue
-            (name, dH) = [x for x in srow.split(" ") if (x != "")]
-            self.deltaH[name] = float(dH) * 120.274  # kJ/mol->K
-        print(("Enthalpy of formation values loaded from " + fname))
-
-    # *************************
-    # load atoms mass from file, with format
-    # name mass/amu
-    # load data into a class attribute dictionary with
-    # key=name, value=mass (amu)
-    def loadAtoms(self, fname):
-        self.mass = dict()
-        for row in open(fname, "rb"):
-            srow = row.strip().decode('ascii')
-            # ENDFILE line stops reading
-            if srow == "ENDFILE":
-                break
-            if srow == "":
-                continue
-            if srow.startswith("#"):
-                continue
-
-            # split read data
-            (name, mass) = [x for x in srow.split(" ") if (x != "")]
-
-            # store data into class attribute
-            self.mass[name] = float(mass)
-
-        print(("Atoms (mass) loaded from " + fname))
-
-    # ********************
-    # load 2body reaction barriers from file, with format (tab- or space-separated)
-    # R R P ... P Ea/K
-    # stores reaction data into list of dictionaries
     def loadBarriers(self, fname):
         self.Ea = []
-        for row in open(fname, "rb"):
-            srow = row.strip().decode('ascii').replace("\t", " ")
-            # ENDFILE line stops reading
-            if srow == "ENDFILE":
-                break
-            if srow == "":
-                continue
-            if srow.startswith("#"):
-                continue
+        """Load 2body reaction barriers from file."""
+        for line in self._read_file_lines(fname):
+            self.Ea.append(self._parse_ascii_data(line, 'Ea'))
+        print(f"Barriers loaded from {fname}")
+    
+    def loadEbinds(self, fname):
+        self.Eice = dict()
+        self.Ebare = dict()
+        """Load binding energies from file."""
+        for line in self._read_file_lines(fname):
+            name, Eb, Ei = self._parse_ascii_data(line, 'Ebind').values()
+            self.Eice[name] = Ei
+            self.Ebare[name] = Eb
+        print(f"Binding energies loaded from {fname}")
 
-            # handle ending line comments
-            srow = srow.split("#")[0]
+    def loadAtoms(self, fname):
+        self.mass = dict()
+        """Load species masses from file."""
+        for line in self._read_file_lines(fname):
+            name, mass = self._parse_ascii_data(line, 'atom').values()
+            self.mass[name] = mass
+        print(f"Species masses loaded from {fname}")
 
-            # split read line
-            arow = [x for x in srow.split(" ") if (x != "")]
+    def loadDeltaHs(self, fname):
+        self.deltaH = dict()
+        """Load enthalpies from file."""
+        for line in self._read_file_lines(fname):
+            name, dH = self._parse_ascii_data(line, 'dH').values()
+            self.deltaH[name] = dH
+        print(f"Enthalpies loaded from {fname}")
 
-            # reactions are 2body, hence first two elements are reactants,
-            # 3rd to second last are products, last is barrier energy (K)
-            self.Ea.append(
-                {"reactants": arow[:2], "products": arow[2:-1], "Ea": float(arow[-1])})
+    def loadCheckBarriers(self, fname):
+        self.speciesCheckBarrier = []
+        """Load 2body reaction barriers from file."""
+        for line in self._read_file_lines(fname):
+            self.speciesCheckBarrier.append(self._parse_ascii_data(line, 'species'))
+        print(f"Check barriers loaded from {fname}")
 
-        print(("Barriers loaded from " + fname))
-
-    # ********************
-    # load 2body reaction barrier width from file, with format (tab- or space-separated)
-    # R R P ... P width/Å
-    # stores reaction data into list of dictionaries
     def loadBarrierWidths(self, fname):
         self.barrierWidths = []
-        for row in open(fname, "rb"):
-            srow = row.strip().decode('ascii').replace("\t", " ")
-            # ENDFILE line stops reading
-            if srow == "ENDFILE":
-                break
-            if srow == "":
-                continue
-            if srow.startswith("#"):
-                continue
+        """Load 2body reaction barrier width from file."""
+        for line in self._read_file_lines(fname):
+            self.barrierWidths.append(self._parse_ascii_data(line, 'width'))
+        print(f"Barrier widths loaded from {fname}")
 
-            # handle ending line comments
-            srow = srow.split("#")[0]
-
-            # split read line
-            arow = [x for x in srow.split(" ") if (x != "")]
-
-            # reactions are 2body, hence first two elements are reactants,
-            # 3rd to second last are products, last is barrier energy (K)
-            self.barrierWidths.append(
-                {"reactants": arow[:2], "products": arow[2:-1], "width": float(arow[-1])*1e-8})
-
-        print(("Barrier widths loaded from " + fname))
-
-    # ********************
-    # load 2body branching ratios from file, with format (tab- or space-separated)
-    # R R P ... P ratio
-    # stores reaction data into list of dictionaries
     def loadBranchingRatios(self, fname):
         self.Bratios = []
-        for row in open(fname, "rb"):
-            srow = row.strip().decode('ascii').replace("\t", " ")
-            # ENDFILE line stops reading
-            if srow == "ENDFILE":
-                break
-            if srow == "":
-                continue
-            if srow.startswith("#"):
-                continue
+        """Load 2body branching ratios from file."""
+        for line in self._read_file_lines(fname):
+            self.Bratios.append(self._parse_ascii_data(line, 'ratio'))
+        print(f"Branching ratios loaded from {fname}")
 
-            # handle ending line comments
-            srow = srow.split("#")[0]
-
-            # split read line
-            arow = [x for x in srow.split(" ") if (x != "")]
-
-            # reactions are 2body, hence first two elements are reactants,
-            # 3rd to second last are products, last is branching ratio
-            self.Bratios.append(
-                {"reactants": arow[:2], "products": arow[2:-1], "ratio": float(arow[-1])})
-
-        print(("Branching ratios loaded from " + fname))
-
-    # ********************
-    # load photodesorption yields from file, with format (tab- or space-separated)
-    # R P ... P yield
-    # store photodesorption reaction data into list of dictionaries
     def loadYieldsPD(self, fname):
         self.yieldPD = []
-        for row in open(fname, "rb"):
-            srow = row.strip().decode('ascii').replace("\t", " ")
-            # ENDFILE line stops reading
-            if srow == "ENDFILE":
-                break
-            if srow == "":
-                continue
-            if srow.startswith("#"):
-                continue
+        """Load photodesorption yields from file."""
+        for line in self._read_file_lines(fname):
+            self.yieldPD.append(self._parse_ascii_data(line, 'yield'))
+        print(f"Photodesorption yields loaded from {fname}")
 
-            # split read line
-            arow = [x for x in srow.split(" ") if (x != "")]
-
-            # reactions are single body, hence first element is reactant,
-            # 2rd to second last are products, last is yield
-            self.yieldPD.append({"reactants": arow[:1],
-                                 "products": arow[1:-1],
-                                 "yield": float(arow[-1])})
-
-        print(("Photodesorption yields loaded from " + fname))
 
     # ***********************
     # return a reaction object with the given index idx (zero-based)
@@ -2093,14 +1980,6 @@ class database:
 
         # write message if barrierless are present
         if noBarriers:
-            # print "WARNING: the following dust-phase reactions (with " + (", ".join(molscheck)) \
-            #	+ " as reactants)"
-            # print " have unknown barrier (gas-phase products are not listed):"
-            # loop on barrierless
-            # for rea in noBarriers:
-            #	#only list dust reactions (skip gas)
-            #	if(any([x.isGas for x in rea.reactants+rea.products])): continue
-            #	print rea.verbatim
             print("\nReactions unknown barrier and these reactants will be removed:")
             print((" " + (", ".join(molscheck))))
             print((" (i.e. from " + str(len(reactions)) + " to "
@@ -2288,7 +2167,7 @@ class database:
         return lines
 
     # ***********************************
-    # function to add special encounter desorption for H2. Hincelin+2015. Messy.
+    # function to add special encounter desorption for H2. Hincelin+2015. 
     def addEncounterDesorption(self):
         if self.H2spin:
             RRs = []

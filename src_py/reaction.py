@@ -2,7 +2,6 @@ from math import exp, sqrt, pi
 from utils import strF90
 import numpy as np
 import sys
-import re
 
 
 # reaction class for surface reactions
