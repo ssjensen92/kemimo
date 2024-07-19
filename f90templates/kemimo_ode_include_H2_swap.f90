@@ -178,7 +178,7 @@ contains
 
     end do
     
-    !dn(idx_H2_0001) = 0d0
+    !dn(idx_H2_surface) = 0d0
     dn(idx_dummy) = 0d0
 
     do i=surface_start, surface_end
@@ -240,7 +240,7 @@ contains
       dn(idx_surface_mask) = dn(idx_surface_mask) - dnsdt * kall(nrea)
       dn(idx_mantle_mask) = dn(idx_mantle_mask) + dnsdt * kall(nrea)
       do i=surface_start, surface_end
-        !if (i == idx_H2_0001) cycle
+        !if (i == idx_H2_surface) cycle
         dn(i) = dn(i) - dnsdt * n(i)/Nsurface
         dn(i+offset) = dn(i+offset) + dnsdt * n(i)/Nsurface
       enddo
@@ -257,7 +257,7 @@ contains
       dn(idx_mantle_mask) = dn(idx_mantle_mask) + dnsdt * kall(nrea)
       
       do i=surface_start, surface_end
-        !if (i == idx_H2_0001) cycle
+        !if (i == idx_H2_surface) cycle
         dn(i) = dn(i) - dnsdt * n(i+offset)/Nmantle
         dn(i+offset) = dn(i+offset) + dnsdt * n(i+offset)/Nmantle
       enddo
@@ -420,7 +420,7 @@ contains
       pdj(idx_mantle_mask) = pdj(idx_mantle_mask) + dnsdt * kall(nrea)
       do i=surface_start, surface_end
         if (pdj(i) == 0d0) cycle
-        !if (i == idx_H2_0001) cycle
+        !if (i == idx_H2_surface) cycle
         if (i == j) cycle
         pdj(i) = pdj(i) - dnsdt * n(i)/Nsurface
         pdj(i+offset) = pdj(i+offset) + dnsdt * n(i)/Nsurface
@@ -438,7 +438,7 @@ contains
       
       do i=surface_start, surface_end
         if (pdj(i) == 0d0) cycle
-        !if (i == idx_H2_0001) cycle
+        !if (i == idx_H2_surface) cycle
         if (i == j) cycle
         pdj(i) = pdj(i) - dnsdt * n(i+offset)/Nmantle
         pdj(i+offset) = pdj(i+offset) + dnsdt * n(i+offset)/Nmantle
@@ -454,8 +454,8 @@ contains
     ! Loop on species (This loop could be reduced)
     do i=1, surface_end
       if (i == idx_dummy) cycle
-      if (i == idx_H2_0001) cycle
-      if (i == idx_H2_0002) cycle
+      if (i == idx_H2_surface) cycle
+      if (i == idx_H2_mantle) cycle
       ewt_fac(i) = abs(pdj(idx_surface_mask) * ndns * n(i) / (dn_surface * ndns))
       if ((ewt_fac(i) < 1d0) .or. (ewt_fac(i) /= ewt_fac(i))) ewt_fac = 1d0
     enddo

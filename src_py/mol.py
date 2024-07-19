@@ -10,6 +10,9 @@ class mol:
     # name is species name as string
     # atomsMass is a dictionary, key=atom name string, value=mass in amu
     def __init__(self, name, atomsMass, layer = 1):
+        # only allow layer in [0, 1, 2]:
+        if layer > 2:
+            raise ValueError("Layer > 2 for %s. This is not allowed."% name)
         self.atomsMass = atomsMass
         # species name, gas phase species ends with _gas
         self.dictname = name
@@ -24,7 +27,12 @@ class mol:
         elif ("k" in name) and ("_gas" not in name):
             self.name = name + "_gas"
         else:
-            self.name = name + "_%0.4i" % layer
+            if layer == 1:
+                self.name = name + "_surface"
+            elif layer == 2:
+                self.name = name + "_mantle"
+            else:
+                raise ValueError("ERROR in the molecular input. Check layer in [1,2] or gas species")
         # binding energy, K
         self.Eice = self.Ebare = self.Ediff = None
         # enthalpy of formation, K
@@ -54,10 +62,14 @@ class mol:
             self.name = self.dictname
             self.fidx = "idx_" + self.dictname.replace("+", "j").replace("-", "k")
         else:
+            if "+" in self.dictname or "-" in self.dictname:
+                print("WARNING: surface species %s has a +/- sign. This is not allowed." % self.dictname)
+                self.fidx = "idx_" + self.dictname.replace("+", "j").replace("-", "k")
             # F90 index variable, + is replaced with j
-            self.fidx = "idx_" + \
-                self.dictname.replace(
-                    "+", "j").replace("-", "k") + "_%0.4i" % layer
+            if layer == 1:
+                self.fidx = "idx_" + self.dictname + "_surface"
+            else:
+                self.fidx = "idx_" + self.dictname + "_mantle"
         
         # charge (count positive)
         self.charge = self.name.count("+")

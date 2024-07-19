@@ -128,7 +128,7 @@ contains
     if (n(idx_surface_mask) < 1d-40) n(idx_surface_mask) = 1d-40
     
     ! Update Y_CO
-    theta_CO = n(idx_CO_0001) / max(n(idx_surface_mask)*ndns, ndns)
+    theta_CO = n(idx_CO_surface) / max(n(idx_surface_mask)*ndns, ndns)
     theta_CO = max(0d0, min(1d0, theta_CO))
     Y_CO = 2.7d-3 !(1d0 - theta_CO) * 3d-4 + 1d-2 * theta_CO
     !if (Y_CO /= Y_CO) Y_CO = 3d-4

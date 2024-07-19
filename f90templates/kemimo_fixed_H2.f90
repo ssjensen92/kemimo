@@ -135,8 +135,8 @@ contains
     ! Update H2_ice for current ndns, H2_coverage (calculated in computeRates call!)
     H2_ice = H2_coverage * ndns * layerThickness
     ! Change:
-    delta_H2_para_ice = H2_ice*(1d0 - OPR) - n(idx_p_H2_0001)
-    delta_H2_ortho_ice = H2_ice*OPR - n(idx_o_H2_0001)
+    delta_H2_para_ice = H2_ice*(1d0 - OPR) - n(idx_p_H2_surface)
+    delta_H2_ortho_ice = H2_ice*OPR - n(idx_o_H2_surface)
     
     ! Update surface mask based on H2 update:
     R = (delta_H2_para_ice + delta_H2_ortho_ice)
@@ -148,8 +148,8 @@ contains
       alpha = max(0d0, n(idx_surface_mask) - (real(layerThickness) - 1d0))
       if (alpha > 0d0) then
         do i=surface_start, surface_end
-          if (i == idx_p_H2_0001) cycle
-          if (i == idx_o_H2_0001) cycle
+          if (i == idx_p_H2_surface) cycle
+          if (i == idx_o_H2_surface) cycle
           n(i) = n(i) - alpha * R * n(i)/Nsurface
           n(i+offset) = n(i+offset) + alpha * R * n(i)/Nsurface
         enddo
@@ -160,8 +160,8 @@ contains
       alpha = min(1d0, Nmantle / min(Nsurface, ndns))
       if (alpha > 0d0) then
         do i=surface_start, surface_end
-          if (i == idx_p_H2_0001) cycle
-          if (i == idx_o_H2_0001) cycle
+          if (i == idx_p_H2_surface) cycle
+          if (i == idx_o_H2_surface) cycle
           n(i) = n(i) - alpha * R * n(i+offset)/Nmantle
           n(i+offset) = n(i+offset) + alpha * R * n(i+offset)/Nmantle
         enddo
@@ -173,14 +173,14 @@ contains
 
 
     ! Update Y_CO
-    theta_CO = n(idx_CO_0001) / max(n(idx_surface_mask)*ndns, ndns)
+    theta_CO = n(idx_CO_surface) / max(n(idx_surface_mask)*ndns, ndns)
     theta_CO = max(0d0, min(1d0, theta_CO))
     Y_CO = (1d0 - theta_CO) * 3d-4 + 1d-2 * theta_CO
     if (Y_CO /= Y_CO) Y_CO = 3d-4
     kall(CO_desorption_idx) = Y_CO * Ffuva_CO
 
-    n(idx_p_H2_0001) = H2_ice*(1d0 - OPR)
-    n(idx_o_H2_0001) = H2_ice*OPR
+    n(idx_p_H2_surface) = H2_ice*(1d0 - OPR)
+    n(idx_o_H2_surface) = H2_ice*OPR
 
     call dochem(n(:), dt)
 

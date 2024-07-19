@@ -155,16 +155,16 @@ contains
 
       if (layer == 1) then
         if ((rtype == 4) .or. (rtype == 3)) then 
-          if ((reactionArray(i,3) == idx_o_H2_0001) .or. (reactionArray(i,3) == idx_p_H2_0001)) then
-           flux = flux / (max(n(idx_surface_mask)*ndns, ndns) + n(idx_o_H2_0001) + n(idx_p_H2_0001))
+          if ((reactionArray(i,3) == idx_o_H2_surface) .or. (reactionArray(i,3) == idx_p_H2_surface)) then
+           flux = flux / (max(n(idx_surface_mask)*ndns, ndns) + n(idx_o_H2_surface) + n(idx_p_H2_surface))
           else
            flux = flux / max(n(idx_surface_mask)*ndns, ndns)
           endif
         elseif (rtype == 5) then
-          if ((reactionArray(i,3) == idx_o_H2_0001) .or. (reactionArray(i,3) == idx_p_H2_0001)) then
-           flux = flux / max(1d0, (n(idx_surface_mask) + (n(idx_o_H2_0001) + n(idx_p_H2_0001))/ndns))
-          elseif ((reactionArray(i,4) == idx_o_H2_0001) .or. (reactionArray(i,4) == idx_p_H2_0001)) then
-           flux = flux / max(1d0, (n(idx_surface_mask) + (n(idx_o_H2_0001) + n(idx_p_H2_0001))/ndns))
+          if ((reactionArray(i,3) == idx_o_H2_surface) .or. (reactionArray(i,3) == idx_p_H2_surface)) then
+           flux = flux / max(1d0, (n(idx_surface_mask) + (n(idx_o_H2_surface) + n(idx_p_H2_surface))/ndns))
+          elseif ((reactionArray(i,4) == idx_o_H2_surface) .or. (reactionArray(i,4) == idx_p_H2_surface)) then
+           flux = flux / max(1d0, (n(idx_surface_mask) + (n(idx_o_H2_surface) + n(idx_p_H2_surface))/ndns))
           else
            flux = flux / max(1d0, n(idx_surface_mask))
           endif
@@ -184,8 +184,8 @@ contains
     dn(idx_dummy) = 0d0
 
     do i=surface_start, surface_end
-      if (i == idx_o_H2_0001) cycle
-      if (i == idx_p_H2_0001) cycle
+      if (i == idx_o_H2_surface) cycle
+      if (i == idx_p_H2_surface) cycle
       dn(idx_surface_mask) = dn(idx_surface_mask) + dn(i)
     enddo
 
@@ -269,16 +269,16 @@ contains
 
       if (layer == 1) then
         if ((rtype == 4) .or. (rtype == 3)) then 
-          if ((reactionArray(i,3) == idx_o_H2_0001) .or. (reactionArray(i,3) == idx_p_H2_0001)) then
-           flux = flux / (max(n(idx_surface_mask)*ndns, ndns) + n(idx_o_H2_0001) + n(idx_p_H2_0001))
+          if ((reactionArray(i,3) == idx_o_H2_surface) .or. (reactionArray(i,3) == idx_p_H2_surface)) then
+           flux = flux / (max(n(idx_surface_mask)*ndns, ndns) + n(idx_o_H2_surface) + n(idx_p_H2_surface))
           else
            flux = flux / max(n(idx_surface_mask)*ndns, ndns)
           endif
         elseif (rtype == 5) then
-          if ((reactionArray(i,3) == idx_o_H2_0001) .or. (reactionArray(i,3) == idx_p_H2_0001)) then
-           flux = flux / max(1d0, (n(idx_surface_mask) + (n(idx_o_H2_0001) + n(idx_p_H2_0001))/ndns))
-          elseif ((reactionArray(i,4) == idx_o_H2_0001) .or. (reactionArray(i,4) == idx_p_H2_0001)) then
-           flux = flux / max(1d0, (n(idx_surface_mask) + (n(idx_o_H2_0001) + n(idx_p_H2_0001))/ndns))
+          if ((reactionArray(i,3) == idx_o_H2_surface) .or. (reactionArray(i,3) == idx_p_H2_surface)) then
+           flux = flux / max(1d0, (n(idx_surface_mask) + (n(idx_o_H2_surface) + n(idx_p_H2_surface))/ndns))
+          elseif ((reactionArray(i,4) == idx_o_H2_surface) .or. (reactionArray(i,4) == idx_p_H2_surface)) then
+           flux = flux / max(1d0, (n(idx_surface_mask) + (n(idx_o_H2_surface) + n(idx_p_H2_surface))/ndns))
           else
            flux = flux / max(1d0, n(idx_surface_mask))
           endif
@@ -298,8 +298,8 @@ contains
     pdj(idx_dummy) = 0d0
 
     do i=surface_start, surface_end
-      if (i == idx_o_H2_0001) cycle
-      if (i == idx_p_H2_0001) cycle
+      if (i == idx_o_H2_surface) cycle
+      if (i == idx_p_H2_surface) cycle
       pdj(idx_surface_mask) = pdj(idx_surface_mask) + pdj(i)
     enddo
     pdj(idx_surface_mask) = pdj(idx_surface_mask) * kall(nrea)
