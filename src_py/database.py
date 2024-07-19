@@ -739,8 +739,6 @@ class database:
     # *****************
     # load reaction from KIDA database and compare with a set of reactions
     def purgeUsingKIDA(self, reactions, atomsMass, fileName="gasNetwork.dat"):
-        #def purgeUsingKIDA(self, reactions, atomsMass, fileName="data/kida.uva.2014.dat"):
-
         print(("Comparing gas-phase with surface network " + fileName))
 
         # dict of surface reactions, key=exploded hash, value = known in the gas phase
