@@ -3,7 +3,7 @@ Three-phase gas-grain astrochemical model. The code is provided "as-is" and not 
 The code consists of a python wrapper around a fortran core.
 Feel free to contact me if you encounter any bugs or have questions.
 
-The code is provided under the GPL v3 license. I ask that you refer to Jensen et al. (2021) if the code of parts hereof are used in published works.
+The code is provided under the GPL v3 license. I ask that you refer to Jensen et al. (2021) [https://ui.adsabs.harvard.edu/link_gateway/2021A&A...649A..66J/doi:10.1051/0004-6361/202040196] if the code of parts hereof are used in published works.
 
 # Chemical network
 The chemical network is provided in KIDA format. All files are located in the "data_deuterated_total" directory.
