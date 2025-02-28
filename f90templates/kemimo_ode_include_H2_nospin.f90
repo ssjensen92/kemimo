@@ -206,8 +206,7 @@ contains
     if (doSwap .eqv. .true.) then
       Rswap_total = 0d0
       do i=mantle_start, mantle_end
-        if (i == idx_o_H2_mantle) cycle
-        if (i == idx_p_H2_mantle) cycle
+        if (i == idx_H2_mantle) cycle
         if (n(i) > 1d-50) then
           Rswap = n(i) * kswap(i-mantle_start+1)
           if (n(idx_mantle_mask) > 1d0) Rswap = Rswap / n(idx_mantle_mask)
@@ -220,8 +219,7 @@ contains
       enddo
 
       do i=surface_start, surface_end
-        if (i == idx_o_H2_surface) cycle
-        if (i == idx_p_H2_surface) cycle
+        if (i == idx_H2_surface) cycle
         if (n(i) > 1d-50) then
           Rswap = (n(i)/Nsurface) * Rswap_total
           dn(i) = dn(i) - Rswap
@@ -244,8 +242,7 @@ contains
       dn(idx_surface_mask) = dn(idx_surface_mask) - dnsdt * kall(nrea)
       dn(idx_mantle_mask) = dn(idx_mantle_mask) + dnsdt * kall(nrea)
       do i=surface_start, surface_end
-        if (i == idx_o_H2_surface) cycle
-        if (i == idx_p_H2_surface) cycle
+        if (i == idx_H2_surface) cycle
         dn(i) = dn(i) - dnsdt * n(i)/Nsurface
         dn(i+offset) = dn(i+offset) + dnsdt * n(i)/Nsurface
       enddo
@@ -262,8 +259,7 @@ contains
       dn(idx_mantle_mask) = dn(idx_mantle_mask) + dnsdt * kall(nrea)
       
       do i=surface_start, surface_end
-        if (i == idx_o_H2_surface) cycle
-        if (i == idx_p_H2_surface) cycle
+        if (i == idx_H2_surface) cycle
         dn(i) = dn(i) - dnsdt * n(i+offset)/Nmantle
         dn(i+offset) = dn(i+offset) + dnsdt * n(i+offset)/Nmantle
       enddo
@@ -388,8 +384,7 @@ contains
     if (doSwap .eqv. .true.) then
       Rswap_total = 0d0
       do i=mantle_start, mantle_end
-        if (i == idx_o_H2_mantle) cycle
-        if (i == idx_p_H2_mantle) cycle
+        if (i == idx_H2_mantle) cycle
         if (i == j) cycle
         if (pdj(i) == 0d0) cycle ! for better performance
         if (n(i) > 1d-50) then
@@ -404,8 +399,7 @@ contains
       enddo
 
       do i=surface_start, surface_end
-        if (i == idx_o_H2_surface) cycle
-        if (i == idx_p_H2_surface) cycle
+        if (i == idx_H2_surface) cycle
         if (i == j) cycle
         if (pdj(i) == 0d0) cycle ! for better performance
         if (n(i) > 1d-50) then
@@ -429,8 +423,7 @@ contains
       pdj(idx_surface_mask) = pdj(idx_surface_mask) - dnsdt * kall(nrea)
       pdj(idx_mantle_mask) = pdj(idx_mantle_mask) + dnsdt * kall(nrea)
       do i=surface_start, surface_end
-        if (i == idx_p_H2_surface) cycle
-        if (i == idx_o_H2_surface) cycle
+        if (i == idx_H2_surface) cycle
         if (pdj(i) == 0d0) cycle
         if (i == j) cycle
         pdj(i) = pdj(i) - dnsdt * n(i)/Nsurface
@@ -448,8 +441,7 @@ contains
       pdj(idx_mantle_mask) = pdj(idx_mantle_mask) + dnsdt * kall(nrea)
       
       do i=surface_start, surface_end
-        if (i == idx_p_H2_surface) cycle
-        if (i == idx_o_H2_surface) cycle
+        if (i == idx_H2_surface) cycle
         if (pdj(i) == 0d0) cycle
         if (i == j) cycle
         pdj(i) = pdj(i) - dnsdt * n(i+offset)/Nmantle
