@@ -1,7 +1,7 @@
 from utils import tabrow, strF90, doPP, doPP_datfile, doPP_Python, latexExp, latexInt
 from utils import speciesToKIDA, getReactionType
 from mol import mol
-from mly import mly, mly_dist
+from mly import mly
 from dummy_species import dummy_species
 from reaction import reaction
 from monolayer_reaction import monolayer_reaction
