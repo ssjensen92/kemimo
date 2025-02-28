@@ -15,7 +15,7 @@ import numpy as np
 from shutil import copyfile
 import time
 import copy
-from multiprocessing import Pool, set_forkserver_preload
+from multiprocessing import Pool
 import multiprocessing as mp
 
 import itertools
@@ -25,7 +25,6 @@ import itertools
 class database:
     # *****************
     # database class constructor
-
     def __init__(self, datadir="./standard_data/", nlayers=2, layerThickness=4.0,
                  ignoreMissingH=True, ignoreMissingEbind=True, 
                  allSpeciesToDust=False, include_H2=True, limit2body=True, respectGasphaseLimits=True,
@@ -40,7 +39,7 @@ class database:
         '''
         self.layerThickness = layerThickness
         # do (physical) swapping between surface and mantle:
-        self.doSwap=doSwap
+        self.doSwap = doSwap
         # Include H2 formation in network or keep static?
         self.include_H2 = include_H2
         # include H2 spin (this flag is necessary for kemimo_ode where o/p H2 is hardcoded)
@@ -77,8 +76,8 @@ class database:
         start = time.time()
         # load data from files, see details in the corresponding methods
         self.loadSpecies(fileSpecies, fileDustSpecies)
-        self.loadEbind(fileEbind)
-        self.loadDeltaH(fileDeltaH)
+        self.loadEbinds(fileEbind)
+        self.loadDeltaHs(fileDeltaH)
         self.loadAtoms(fileAtoms)
         self.loadBarriers(fileEa)
         self.loadBarrierWidths(fileBarrierWidth)
@@ -128,11 +127,11 @@ class database:
                 # check if species has no binding energy
                 if species.namebase not in self.Eice:
                     # Exception for species starting with "l_", "c_", etc.
-                    if not species.isGas and species.name.strip('_0001') in self.Eice: 
+                    if not species.isGas and species.name.strip('_surface') in self.Eice: 
                         self.Eice[species.namebase] = self.Eice[species.name.strip(
-                            '_0001')]
+                            '_surface')]
                         self.Ebare[species.namebase] = self.Ebare[species.name.strip(
-                            '_0001')]
+                            '_surface')]
                     elif species.isGas and species.name.strip('_gas') in self.Eice:
                         self.Eice[species.namebase] = self.Eice[species.name.strip(
                             '_gas')]
@@ -153,14 +152,10 @@ class database:
                 # check if species has no enthalpy of formation
                 if species.namebase not in self.deltaH:
                     # Exception for species starting with "l_", "c_", etc.
-                    if not species.isGas and species.name.strip('_0001') in self.deltaH:
+                    if not species.isGas and species.name.strip('_surface') in self.deltaH:
                         self.deltaH[species.namebase] = self.deltaH[species.name.strip(
-                            '_0001')]
-                        self.deltaH[species.namebase] = self.deltaH[species.name.strip(
-                            '_0001')]
+                            '_surface')]
                     elif species.isGas and species.name.strip('_gas') in self.deltaH:
-                        self.deltaH[species.namebase] = self.deltaH[species.name.strip(
-                            '_gas')]
                         self.deltaH[species.namebase] = self.deltaH[species.name.strip(
                             '_gas')]
                     elif ignoreMissingH:
@@ -192,16 +187,15 @@ class database:
             print("Assuming H2O binding energy for all species without information!")
 
         print("****************************************************")
-        if nlayers == 6:
-            print("Running 7-phase model. This is in alpha stage.")
-            self.nlayers = nlayers
-        elif nlayers == 2:
+        if nlayers == 2:
             print("Running three phase model")
             # create layers above 1:
-            self.nlayers = nlayers
-        else:
+            self.nlayers = 2
+        elif nlayers == 1:
             self.nlayers = 1
             print("Running with single surface layer (bulk ice)")
+        else:
+            raise ValueError("ERROR: nlayers should be in [1, 2]. Exiting.")
 
 
         # use combinatorics to find reactions
@@ -240,10 +234,8 @@ class database:
         self.computeRates()
 
         # Create surface and mantle masks
-        mly_surface = mly(seperationDistance=3e-8, radius=1e-5,
-                   layerThickness=layerThickness, name='surface')
-        mly_mantle = mly(seperationDistance=3e-8, radius=1e-5,
-                layerThickness=layerThickness, name='mantle')
+        mly_surface = mly(seperationDistance=3e-8, radius=1e-5, name='surface')
+        mly_mantle = mly(seperationDistance=3e-8, radius=1e-5, name='mantle')
         # Adjust indexing
         mly_surface.idx = self.icount
         mly_mantle.idx = self.icount+1
@@ -308,13 +300,13 @@ class database:
                 if x.endswith('_gas'):
                     RRs.append(speciesDict[x])
                 else:
-                    RRs.append(layeredSpeciesDict[x + '_%0.4i' % 1])
+                    RRs.append(layeredSpeciesDict[x + '_surface'])
                 RR_names.append(RRs[-1].name)
             for x in data["products"]:
                 if x.endswith('_gas'):
                     PPs.append(speciesDict[x])
                 else:
-                    PPs.append(layeredSpeciesDict[x + '_%0.4i' % 1])
+                    PPs.append(layeredSpeciesDict[x + '_surface'])
             # create a new reaction object with the given yield
             rea = reaction(RRs, PPs, self.Ea, self.barrierWidths, self.Bratios,
                            yieldPD=data["yield"])
@@ -330,7 +322,7 @@ class database:
             if s not in desorptionReactants and not layeredSpeciesDict[s].isGas:
                 RRs = [layeredSpeciesDict[s]]
                 try:
-                    PPs = [speciesDict[s.replace("_0001", "_gas")]]
+                    PPs = [speciesDict[s.replace("_surface", "_gas")]]
                 except KeyError:
                     # Species has not gas equivalant. Print warning
                     #print("Species is surface-only: ", s)
@@ -396,7 +388,7 @@ class database:
             rea.buildF90RHS()
             self.icount += 1
             rea.baseIdx = rea.idx + 1  # Adjust to F90 indexing
-            if rea.reactants[0].name == 'CO_0001' and rea.type == "photodesorption":
+            if rea.reactants[0].name == 'CO_surface' and rea.type == "photodesorption":
                 self.CO_photodesorption = rea.baseIdx
 
     def updateMaskReaction(self):
@@ -412,15 +404,8 @@ class database:
         fout = open(fname, "w")
         for rea in self.reactionsAll:
             # each line is a different reaction
-            if isinstance(rea, reaction):
-                #for ilayer in range(1, self.nlayers+1):
-                ilayer = 1
-                iverbatim = rea.verbatim.replace(
-                    "_0001", "_%0.4i" % ilayer)
-                fout.write(iverbatim + "\n")
-            else:
-                iverbatim = rea.verbatim
-                fout.write(iverbatim + "\n")
+            iverbatim = rea.verbatim
+            fout.write(iverbatim + "\n")
 
         fout.close()
 
@@ -538,7 +523,7 @@ class database:
     # fileName: KIDA database file
     def loadKIDA(self, fileName="gasNetwork.dat"):
         print(("Reading gas-phase network " + fileName))
-        i = 1  # Relict layer index.
+
         # get a species dictionary where key=name, value=species object
         speciesDict = {x.dictname: x for x in self.species}
         layeredSpeciesDict = {x.name: x for x in self.species}
@@ -614,7 +599,7 @@ class database:
                         name = x.dictname.replace('_gas', '')
                         # if keyerror then the species is not in the surface chemistry network and the reaction is ignored
                         try:
-                            RRs.append(layeredSpeciesDict[name + '_%0.4i' % i])
+                            RRs.append(layeredSpeciesDict[name + '_surface'])
                         except KeyError:
                             addReaction = False
                     for x in rea.products:
@@ -622,7 +607,7 @@ class database:
                         # if keyerror then the species is not in the surface chemistry network and the reaction is ignored
                         try:
                             PPs.append(
-                                layeredSpeciesDict[name + '_%0.4i' % i])
+                                layeredSpeciesDict[name + '_surface'])
                         except KeyError:
                             addReaction = False
                     # create a new reaction object with the given gamma. Yield negative to signal dissociation, not desorption.
@@ -655,95 +640,84 @@ class database:
             CH3OH_gamma = 2.76  # Mix of KIDA values
 
             # CH3OH -> CH2OH + H
-            RRs = [layeredSpeciesDict['CH3OH_{:04d}'.format(i)]]
-            PPs = [layeredSpeciesDict['CH2OH_{:04d}'.format(
-                i)], layeredSpeciesDict['H_{:04d}'.format(i)]]
+            RRs = [layeredSpeciesDict['CH3OH_surface']]
+            PPs = [layeredSpeciesDict['CH2OH_surface'], layeredSpeciesDict['H_surface']]
             srea = reaction(RRs, PPs, self.Ea, self.barrierWidths, self.Bratios, yieldPD=-
                             1.0, gamma=CH3OH_gamma, alpha=(5.0/7.0)*k_CH3OH_total)
-            srea.layer = i
+            srea.layer = 1
             self.reactions.append(srea)
 
             # CH3OH -> CH3O + H
-            PPs = [layeredSpeciesDict['CH3O_{:04d}'.format(
-                i)], layeredSpeciesDict['H_{:04d}'.format(i)]]
+            PPs = [layeredSpeciesDict['CH3O_surface'], layeredSpeciesDict['H_surface']]
             srea = reaction(RRs, PPs, self.Ea, self.barrierWidths, self.Bratios,
                             yieldPD=-1.0, gamma=CH3OH_gamma, alpha=(1.0/7.0)*k_CH3OH_total)
-            srea.layer = i
+            srea.layer = 1
             self.reactions.append(srea)
 
             # CH3OH -> CH3 + OH
-            PPs = [layeredSpeciesDict['CH3_{:04d}'.format(
-                i)], layeredSpeciesDict['OH_{:04d}'.format(i)]]
+            PPs = [layeredSpeciesDict['CH3_surface'], layeredSpeciesDict['OH_surface']]
             srea = reaction(RRs, PPs, self.Ea, self.barrierWidths, self.Bratios,
                             yieldPD=-1.0, gamma=CH3OH_gamma, alpha=(1.0/7.0)*k_CH3OH_total)
-            srea.layer = i
+            srea.layer = 1
             self.reactions.append(srea)
 
         if 'CH3OD_gas' in speciesDict.keys():
             ####
             # CH3OD -> CH2OD + H
-            RRs = [layeredSpeciesDict['CH3OD_{:04d}'.format(i)]]
-            PPs = [layeredSpeciesDict['CH2OD_{:04d}'.format(
-                i)], layeredSpeciesDict['H_{:04d}'.format(i)]]
+            RRs = [layeredSpeciesDict['CH3OD_surface']]
+            PPs = [layeredSpeciesDict['CH2OD_surface'], layeredSpeciesDict['H_surface']]
             srea = reaction(RRs, PPs, self.Ea, self.barrierWidths, self.Bratios, yieldPD=-
                             1.0, gamma=CH3OH_gamma, alpha=(5.0/7.0)*k_CH3OH_total)
-            srea.layer = i
+            srea.layer = 1
             self.reactions.append(srea)
 
             # CH3OD -> CH3O + D
-            PPs = [layeredSpeciesDict['CH3O_{:04d}'.format(
-                i)], layeredSpeciesDict['D_{:04d}'.format(i)]]
+            PPs = [layeredSpeciesDict['CH3O_surface'], layeredSpeciesDict['D_surface']]
             srea = reaction(RRs, PPs, self.Ea, self.barrierWidths, self.Bratios,
                             yieldPD=-1.0, gamma=CH3OH_gamma, alpha=(1.0/7.0)*k_CH3OH_total)
-            srea.layer = i
+            srea.layer = 1
             self.reactions.append(srea)
 
             # CH3OD -> CH3 + OD
-            PPs = [layeredSpeciesDict['CH3_{:04d}'.format(
-                i)], layeredSpeciesDict['OD_{:04d}'.format(i)]]
+            PPs = [layeredSpeciesDict['CH3_surface'], layeredSpeciesDict['OD_surface']]
             srea = reaction(RRs, PPs, self.Ea, self.barrierWidths, self.Bratios,
                             yieldPD=-1.0, gamma=CH3OH_gamma, alpha=(1.0/7.0)*k_CH3OH_total)
-            srea.layer = i
+            srea.layer = 1
             self.reactions.append(srea)
         if 'CH2DOH_gas' in speciesDict.keys():   
             ####
             # CH2DOH -> CH2OH + D
-            RRs = [layeredSpeciesDict['CH2DOH_{:04d}'.format(i)]]
-            PPs = [layeredSpeciesDict['CH2OH_{:04d}'.format(
-                i)], layeredSpeciesDict['D_{:04d}'.format(i)]]
+            RRs = [layeredSpeciesDict['CH2DOH_surface']]
+            PPs = [layeredSpeciesDict['CH2OH_surface'], layeredSpeciesDict['D_surface']]
             srea = reaction(RRs, PPs, self.Ea, self.barrierWidths, self.Bratios, yieldPD=-
                             1.0, gamma=CH3OH_gamma, alpha=(1.0/3.0 * 5.0/7.0)*k_CH3OH_total)
-            srea.layer = i
+            srea.layer = 1
 
             self.reactions.append(srea)
             # CH2DOH -> CHDOH + H
-            PPs = [layeredSpeciesDict['CHDOH_{:04d}'.format(i)], layeredSpeciesDict['H_{:04d}'.format(i)]]
+            PPs = [layeredSpeciesDict['CHDOH_surface'], layeredSpeciesDict['H_surface']]
             srea = reaction(RRs, PPs, self.Ea, self.barrierWidths, self.Bratios, yieldPD=-
                             1.0, gamma=CH3OH_gamma, alpha=(2.0/3.0  * 5.0/7.0)*k_CH3OH_total)
-            srea.layer = i
+            srea.layer = 1
             self.reactions.append(srea)
 
             # CH2DOH -> CH2DO + H
-            PPs = [layeredSpeciesDict['CH2DO_{:04d}'.format(
-                i)], layeredSpeciesDict['H_{:04d}'.format(i)]]
+            PPs = [layeredSpeciesDict['CH2DO_surface'], layeredSpeciesDict['H_surface']]
             srea = reaction(RRs, PPs, self.Ea, self.barrierWidths, self.Bratios,
                             yieldPD=-1.0, gamma=CH3OH_gamma, alpha=(1.0/7.0)*k_CH3OH_total)
-            srea.layer = i
+            srea.layer = 1
             self.reactions.append(srea)
 
             # CH2DOH -> CH2D + OH
-            PPs = [layeredSpeciesDict['CH2D_{:04d}'.format(
-                i)], layeredSpeciesDict['OH_{:04d}'.format(i)]]
+            PPs = [layeredSpeciesDict['CH2D_surface'], layeredSpeciesDict['OH_surface']]
             srea = reaction(RRs, PPs, self.Ea, self.barrierWidths, self.Bratios,
                             yieldPD=-1.0, gamma=CH3OH_gamma, alpha=(1.0/7.0)*k_CH3OH_total)
-            srea.layer = i
+            srea.layer = 1
             self.reactions.append(srea)
 
     # *****************
     # load reaction from KIDA database and compare with a set of reactions
     def purgeUsingKIDA(self, reactions, atomsMass, fileName="gasNetwork.dat"):
-        #def purgeUsingKIDA(self, reactions, atomsMass, fileName="data/kida.uva.2014.dat"):
-
         print(("Comparing gas-phase with surface network " + fileName))
 
         # dict of surface reactions, key=exploded hash, value = known in the gas phase
@@ -848,9 +822,6 @@ class database:
         doPP("kemimo_sticking.f90", {
              "STICKING": self.getSticking()})
 
-        # prepare EBIND
-        #doPP("kemimo_ebind.f90", {
-        #     "EBIND": self.getEbind()})
 
         # prepare RATES
         doPP("kemimo_dust_rates.f90", {
@@ -923,215 +894,108 @@ class database:
 
             print(("Species names loaded from " + fname))
 
-    # ************************
-    # load reactants to check  barrierless reactions from file.
-    # Species are names one per line. A line with ENDIFLE stops reading.
-    # store data into a class attribute list
-    def loadCheckBarriers(self, fname):
-        self.speciesCheckBarrier = []
-        # loop on file lines
-        for row in open(fname, "rb"):
-            # strip and replace tabs with spaces
-            srow = row.strip().decode('ascii')
-            # ENDFILE line stops reading
-            if srow == "ENDFILE":
-                break
-            if srow == "":
-                continue
-            if srow.startswith("#"):
-                continue
+    def _read_file_lines(self, fname):
+        """Generator that yields processed lines from a file."""
+        with open(fname, "rb") as file:
+            for row in file:
+                srow = row.strip().decode('ascii').replace("\t", " ")
+                if srow == "ENDFILE":
+                    break
+                if srow == "":
+                    continue
+                if srow.startswith("#"):
+                    continue
+                yield srow.split("#")[0]
 
-            # read species as gas-phase
-            self.speciesCheckBarrier.append(srow)
+    def _parse_ascii_data(self, line, data_type):
+        """Parse ascii data from a line based on the data type."""
+        arow = [x for x in line.split(" ") if x != ""]
+        print(arow)
+        if data_type == 'Ea':
+            return {"reactants": arow[:2], "products": arow[2:-1], "Ea": float(arow[-1])}
+        elif data_type == 'width':
+            return {"reactants": arow[:2], "products": arow[2:-1], "width": float(arow[-1])*1e-8}
+        elif data_type == 'ratio':
+            return {"reactants": arow[:2], "products": arow[2:-1], "ratio": float(arow[-1])}
+        elif data_type == 'yield':
+            return {"reactants": arow[:1], "products": arow[1:-1], "yield": float(arow[-1])}
+        elif data_type == 'gamma':
+            return {"reactants": arow[:1], "products": arow[1:-1], "gamma": float(arow[-1])}
+        elif data_type == 'alpha':
+            return {"reactants": arow[:1], "products": arow[1:-1], "alpha": float(arow[-1])}
+        elif data_type == 'Ebind':
+            return {"name": arow[0], "Ebare": float(arow[1]), "Eice": float(arow[2])}
+        elif data_type == 'atom':
+            return {"name": arow[0], "mass": float(arow[1])}
+        elif data_type == 'dH':
+            return {"name": arow[0], "dH": float(arow[1]) * 120.274} # Convert from KJ/mol to K
+        elif data_type == 'species':
+            return arow[0]
+        else:
+            raise ValueError(f"Unknown data type {data_type}")
+        
 
-        print(("Check barrier species names loaded from " + fname))
-
-    # ************************
-    # load binding energies from files, with format:
-    # name Ebare/K Eice/K
-    # stores data into two class attribute dictionaries, Eice and Ebare
-    # with key=species name, value=binding energy (K)
-    def loadEbind(self, fname):
-        self.Eice = dict()
-        self.Ebare = dict()
-        # loop on file lines
-        for row in open(fname, "rb"):
-            srow = row.strip().decode('ascii')
-            # ENDFILE line stops reading
-            if srow == "ENDFILE":
-                break
-            if srow == "":
-                continue
-            if srow.startswith("#"):
-                continue
-
-            # split read data
-            (name, Ebare, Eice) = [x for x in srow.split(" ") if (x != "")]
-
-            # store data into dictionary
-            self.Eice[name] = float(Eice)
-            self.Ebare[name] = float(Ebare)
-
-        print(("Binding energies loaded from " + fname))
-
-    # ************************
-    # load enthalpies from file, with format
-    # name dH/[kJ/mol]
-    # load data into a class attribute dictionary with
-    # key=names, value=enthalpy (K)
-    def loadDeltaH(self, fname):
-        self.deltaH = dict()
-        for row in open(fname, "rb"):
-            srow = row.strip().decode('ascii')
-            # ENDFILE line stops reading
-            if srow == "ENDFILE":
-                break
-            if srow == "":
-                continue
-            if srow.startswith("#"):
-                continue
-            (name, dH) = [x for x in srow.split(" ") if (x != "")]
-            self.deltaH[name] = float(dH) * 120.274  # kJ/mol->K
-        print(("Enthalpy of formation values loaded from " + fname))
-
-    # *************************
-    # load atoms mass from file, with format
-    # name mass/amu
-    # load data into a class attribute dictionary with
-    # key=name, value=mass (amu)
-    def loadAtoms(self, fname):
-        self.mass = dict()
-        for row in open(fname, "rb"):
-            srow = row.strip().decode('ascii')
-            # ENDFILE line stops reading
-            if srow == "ENDFILE":
-                break
-            if srow == "":
-                continue
-            if srow.startswith("#"):
-                continue
-
-            # split read data
-            (name, mass) = [x for x in srow.split(" ") if (x != "")]
-
-            # store data into class attribute
-            self.mass[name] = float(mass)
-
-        print(("Atoms (mass) loaded from " + fname))
-
-    # ********************
-    # load 2body reaction barriers from file, with format (tab- or space-separated)
-    # R R P ... P Ea/K
-    # stores reaction data into list of dictionaries
     def loadBarriers(self, fname):
         self.Ea = []
-        for row in open(fname, "rb"):
-            srow = row.strip().decode('ascii').replace("\t", " ")
-            # ENDFILE line stops reading
-            if srow == "ENDFILE":
-                break
-            if srow == "":
-                continue
-            if srow.startswith("#"):
-                continue
+        """Load 2body reaction barriers from file."""
+        for line in self._read_file_lines(fname):
+            self.Ea.append(self._parse_ascii_data(line, 'Ea'))
+        print(f"Barriers loaded from {fname}")
+    
+    def loadEbinds(self, fname):
+        self.Eice = dict()
+        self.Ebare = dict()
+        """Load binding energies from file."""
+        for line in self._read_file_lines(fname):
+            name, Eb, Ei = self._parse_ascii_data(line, 'Ebind').values()
+            self.Eice[name] = Ei
+            self.Ebare[name] = Eb
+        print(f"Binding energies loaded from {fname}")
 
-            # handle ending line comments
-            srow = srow.split("#")[0]
+    def loadAtoms(self, fname):
+        self.mass = dict()
+        """Load species masses from file."""
+        for line in self._read_file_lines(fname):
+            name, mass = self._parse_ascii_data(line, 'atom').values()
+            self.mass[name] = mass
+        print(f"Species masses loaded from {fname}")
 
-            # split read line
-            arow = [x for x in srow.split(" ") if (x != "")]
+    def loadDeltaHs(self, fname):
+        self.deltaH = dict()
+        """Load enthalpies from file."""
+        for line in self._read_file_lines(fname):
+            name, dH = self._parse_ascii_data(line, 'dH').values()
+            self.deltaH[name] = dH
+        print(f"Enthalpies loaded from {fname}")
 
-            # reactions are 2body, hence first two elements are reactants,
-            # 3rd to second last are products, last is barrier energy (K)
-            self.Ea.append(
-                {"reactants": arow[:2], "products": arow[2:-1], "Ea": float(arow[-1])})
+    def loadCheckBarriers(self, fname):
+        self.speciesCheckBarrier = []
+        """Load 2body reaction barriers from file."""
+        for line in self._read_file_lines(fname):
+            self.speciesCheckBarrier.append(self._parse_ascii_data(line, 'species'))
+        print(f"Check barriers loaded from {fname}")
 
-        print(("Barriers loaded from " + fname))
-
-    # ********************
-    # load 2body reaction barrier width from file, with format (tab- or space-separated)
-    # R R P ... P width/Å
-    # stores reaction data into list of dictionaries
     def loadBarrierWidths(self, fname):
         self.barrierWidths = []
-        for row in open(fname, "rb"):
-            srow = row.strip().decode('ascii').replace("\t", " ")
-            # ENDFILE line stops reading
-            if srow == "ENDFILE":
-                break
-            if srow == "":
-                continue
-            if srow.startswith("#"):
-                continue
+        """Load 2body reaction barrier width from file."""
+        for line in self._read_file_lines(fname):
+            self.barrierWidths.append(self._parse_ascii_data(line, 'width'))
+        print(f"Barrier widths loaded from {fname}")
 
-            # handle ending line comments
-            srow = srow.split("#")[0]
-
-            # split read line
-            arow = [x for x in srow.split(" ") if (x != "")]
-
-            # reactions are 2body, hence first two elements are reactants,
-            # 3rd to second last are products, last is barrier energy (K)
-            self.barrierWidths.append(
-                {"reactants": arow[:2], "products": arow[2:-1], "width": float(arow[-1])*1e-8})
-
-        print(("Barrier widths loaded from " + fname))
-
-    # ********************
-    # load 2body branching ratios from file, with format (tab- or space-separated)
-    # R R P ... P ratio
-    # stores reaction data into list of dictionaries
     def loadBranchingRatios(self, fname):
         self.Bratios = []
-        for row in open(fname, "rb"):
-            srow = row.strip().decode('ascii').replace("\t", " ")
-            # ENDFILE line stops reading
-            if srow == "ENDFILE":
-                break
-            if srow == "":
-                continue
-            if srow.startswith("#"):
-                continue
+        """Load 2body branching ratios from file."""
+        for line in self._read_file_lines(fname):
+            self.Bratios.append(self._parse_ascii_data(line, 'ratio'))
+        print(f"Branching ratios loaded from {fname}")
 
-            # handle ending line comments
-            srow = srow.split("#")[0]
-
-            # split read line
-            arow = [x for x in srow.split(" ") if (x != "")]
-
-            # reactions are 2body, hence first two elements are reactants,
-            # 3rd to second last are products, last is branching ratio
-            self.Bratios.append(
-                {"reactants": arow[:2], "products": arow[2:-1], "ratio": float(arow[-1])})
-
-        print(("Branching ratios loaded from " + fname))
-
-    # ********************
-    # load photodesorption yields from file, with format (tab- or space-separated)
-    # R P ... P yield
-    # store photodesorption reaction data into list of dictionaries
     def loadYieldsPD(self, fname):
         self.yieldPD = []
-        for row in open(fname, "rb"):
-            srow = row.strip().decode('ascii').replace("\t", " ")
-            # ENDFILE line stops reading
-            if srow == "ENDFILE":
-                break
-            if srow == "":
-                continue
-            if srow.startswith("#"):
-                continue
+        """Load photodesorption yields from file."""
+        for line in self._read_file_lines(fname):
+            self.yieldPD.append(self._parse_ascii_data(line, 'yield'))
+        print(f"Photodesorption yields loaded from {fname}")
 
-            # split read line
-            arow = [x for x in srow.split(" ") if (x != "")]
-
-            # reactions are single body, hence first element is reactant,
-            # 2rd to second last are products, last is yield
-            self.yieldPD.append({"reactants": arow[:1],
-                                 "products": arow[1:-1],
-                                 "yield": float(arow[-1])})
-
-        print(("Photodesorption yields loaded from " + fname))
 
     # ***********************
     # return a reaction object with the given index idx (zero-based)
@@ -1344,7 +1208,7 @@ class database:
                 continue
             # check the name starts with "*_", where * is *lower* character
             if s.name[0].isalpha() and s.name[0].islower() and s.name[1] == '_':
-                name = s.name.replace('_0001', '')
+                name = s.name.replace('_surface', '')
                 try:
                     spinSpecies[name[2:]].append(name)
                 except KeyError:
@@ -1888,7 +1752,7 @@ class database:
                         if x.isGas:
                             idxP.append(str(x.idx + 1))
                         else:
-                            #if x.name in ["o_H2_0001", "p_H2_0001"]:
+                            #if x.name in ["o_H2_surface", "p_H2_surface"]:
                             #    idxP.append(dummy)
                             #else:
                             idxP.append(str(int(x.idx + 1) + (ilayer-1)*offset))
@@ -1950,9 +1814,10 @@ class database:
             else:
                 for ilayer in range(1, self.nlayers+1):
                     offset = self.nDustSpecies*(ilayer-1)
+                    fidx = species.fidx
                     if ilayer > 1:
                         offset += 3  # Dummy + mask
-                    fidx = species.fidx.replace("_0001", "_%0.4i" % ilayer)
+                        fidx = fidx.replace("_surface", "_mantle")
                     idx = species.idx + offset
                     idxList += "integer,parameter::" + fidx + \
                         "=" + str(idx + 1) + "\n"
@@ -2098,14 +1963,6 @@ class database:
 
         # write message if barrierless are present
         if noBarriers:
-            # print "WARNING: the following dust-phase reactions (with " + (", ".join(molscheck)) \
-            #	+ " as reactants)"
-            # print " have unknown barrier (gas-phase products are not listed):"
-            # loop on barrierless
-            # for rea in noBarriers:
-            #	#only list dust reactions (skip gas)
-            #	if(any([x.isGas for x in rea.reactants+rea.products])): continue
-            #	print rea.verbatim
             print("\nReactions unknown barrier and these reactants will be removed:")
             print((" " + (", ".join(molscheck))))
             print((" (i.e. from " + str(len(reactions)) + " to "
@@ -2254,14 +2111,14 @@ class database:
 
             # Check if species has specific value:
             try:
-                b = betas[s.namebase.strip('_0001')]
-                g = gammas[s.namebase.strip('_0001')]
+                b = betas[s.namebase.strip('_surface')]
+                g = gammas[s.namebase.strip('_surface')]
             except KeyError:
                 b = beta
                 g = gamma
 
             try:
-                e = E_lc[s.namebase.strip('_0001')]
+                e = E_lc[s.namebase.strip('_surface')]
             except KeyError:
                 e = s.Eice / 1.5
 
@@ -2293,13 +2150,13 @@ class database:
         return lines
 
     # ***********************************
-    # function to add special encounter desorption for H2. Hincelin+2015. Messy.
+    # function to add special encounter desorption for H2. Hincelin+2015. 
     def addEncounterDesorption(self):
         if self.H2spin:
             RRs = []
             PPs = []
             for s in self.species:
-                if s.name == 'o_H2_0001':
+                if s.name == 'o_H2_surface':
                     RRs.append(s)
                     RRs.append(s)
                     PPs.append(s)
@@ -2311,7 +2168,7 @@ class database:
             RRs = []
             PPs = []
             for s in self.species:
-                if s.name == 'p_H2_0001':
+                if s.name == 'p_H2_surface':
                     RRs.append(s)
                     RRs.append(s)
                     PPs.append(s)
@@ -2324,7 +2181,7 @@ class database:
             RRs = []
             PPs = []
             for s in self.species:
-                if s.name == 'H2_0001':
+                if s.name == 'H2_surface':
                     RRs.append(s)
                     RRs.append(s)
                     PPs.append(s)
@@ -2365,7 +2222,7 @@ def findReactions_func(comb1, combinations, Ea, barrierWidths, Bratios, include_
         # Garrod et al. chemical desorption only for single product reactions
         specials_gas = ['p_H2_gas', 'o_H2_gas']
         #specials_gas =['H2_gas', 'HD_gas', 'D2_gas']
-        specials_dust = ['p_H2_0001', 'o_H2_0001']
+        specials_dust = ['p_H2_surface', 'o_H2_surface']
 
         if anyGas2:
             if len(comb2["mols"]) == 1:
