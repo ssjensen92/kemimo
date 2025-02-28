@@ -265,7 +265,7 @@ class reactionGas:
         elif arow["formula"] == 5:
             KK = arow["a"]
             if float(arow["b"]) != 1e0:
-                KK += "*" + arow["b"]
+                KK += "*(" + arow["b"] + ")"
             gpart = ""
             if float(arow["c"]) != 0e0:
                 gpart = "+ 0.0967e0*(" + arow["c"] + \
