@@ -224,7 +224,7 @@ class reactionGas:
             elif self.kidatype == 2 or self.kidatype == 3:
                 self.type = "gasphase_CRP"
                 if "o_H2" not in speciesDict:
-                    KK = arow["a"] + "*0.5*" + "n(idx_H2_gas)/(n(idx_H_gas)+2*n(idx_H2_gas))"+ "*" + CRvar 
+                    KK = arow["a"] + "*2.0*" + "n(idx_H2_gas)/(n(idx_H_gas)+2*n(idx_H2_gas))"+ "*" + CRvar 
                 else:
                     KK = arow["a"] + "*2.0*" + "(n(idx_o_H2_gas)+n(idx_p_H2_gas))/(n(idx_H_gas)+2*(n(idx_o_H2_gas)+n(idx_p_H2_gas)))"+ "*" + CRvar 
             else:
