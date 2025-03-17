@@ -50,7 +50,7 @@ module kemimo_commons
   real*8, parameter :: mu = 1.43 !mean molecular weight
   real*8, parameter :: app = 3d-8 !binding sites separation, cm
   real*8, parameter :: agrain = 1d-5
-  real*8, parameter :: xdust = d2g * pmass / (4.0/3.0 * rho0 * agrain**3.0 * pi) !1.33d-12 ! dust density relative to n_H
+  real*8, parameter :: xdust = mu * d2g * pmass / ((4.0/3.0) * rho0 * agrain**3.0 * pi) !1.33d-12 ! dust density relative to n_H
 
   ! column densities for self-shielding:
   real*8 :: N_H2, N_CO, N_N2, N_HD, N_HI
@@ -58,8 +58,8 @@ module kemimo_commons
   real*8 :: ss_CO, ss_H2, ss_HD, ss_N2
 
   ! UV RADIATION:
-  real*8, parameter :: Fnot = 2d8 ! Draine ISRF
-  real*8, parameter :: F_cr_not = 3d3 ! Cosmic-ray induced UV photons (never attenuated)
+  real*8, parameter :: Fnot = 1d8 ! Draine ISRF
+  real*8, parameter :: F_cr_not = 1d4 ! Cosmic-ray induced UV photons (never attenuated)
   real*8 :: F_cr
 
   ! Photodesorption yield for CO:
