@@ -57,19 +57,21 @@ contains
     !FUV photons per bound molecule per unit of time, 1/s
     kph_factor = a_grain**2.0 * pi * xdust * ngas
     ! Adjust/scale F_cr (CR-UV flux) based on the current CR flux
-    F_cr = variable_crflux * F_cr_not / 1.3d-17
+    F_cr = 0d0 !variable_crflux * F_cr_not / 1.3d-17
     ! Av attenuation from Hollenbach+2009
-    Ffuva = kph_factor * (F_cr + Gnot*Fnot*exp(-1.8d0*variable_Av))
+    Ffuva = kph_factor * (F_cr +  Gnot*Fnot*exp(-1.8d0*variable_Av))
 
     ! Total gas-phase unattenuated dissociation rate from KIDA
-    k_H2O_ph_0 = 8.01d-10 
+    k_H2O_ph_0 = 8.01d-10
     !k_H2O_ph_0 = 8.310d-10 
+    !print *, ss_CO, ss_H2, ss_HD, ss_N2
+
 
     ! Specials to account for self-shielding
-    Ffuva_CO = ss_CO * Ffuva
-    Ffuva_H2 = ss_H2 * Ffuva
-    Ffuva_HD = ss_HD * Ffuva
-    Ffuva_N2 = ss_N2 * Ffuva
+    Ffuva_CO = kph_factor * (F_cr +  SS_CO * Gnot*Fnot*exp(-1.8d0*variable_Av))
+    Ffuva_H2 = kph_factor * (F_cr +  SS_H2 * Gnot*Fnot*exp(-1.8d0*variable_Av))
+    Ffuva_HD = kph_factor * (F_cr +  SS_HD * Gnot*Fnot*exp(-1.8d0*variable_Av))
+    Ffuva_N2 = kph_factor * (F_cr +  SS_N2 * Gnot*Fnot*exp(-1.8d0*variable_Av))
 
     !!BEGIN_RATES
     ! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
