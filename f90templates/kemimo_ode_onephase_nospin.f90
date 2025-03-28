@@ -153,8 +153,6 @@ contains
       layer = reactionArray(i,2)
       rtype = reactionArray(i,9)
 
-
-
       dn(reactionArray(i,3)) = dn(reactionArray(i,3)) - flux
       dn(reactionArray(i,4)) = dn(reactionArray(i,4)) - flux
       dn(reactionArray(i,5)) = dn(reactionArray(i,5)) + flux
@@ -242,7 +240,6 @@ contains
         flux = 0d0
       endif
 
-
       pdj(reactionArray(i,3)) = pdj(reactionArray(i,3)) - flux
       pdj(reactionArray(i,4)) = pdj(reactionArray(i,4)) - flux
       pdj(reactionArray(i,5)) = pdj(reactionArray(i,5)) + flux
@@ -253,7 +250,6 @@ contains
     end do
 
     pdj(idx_dummy) = 0d0
-
 
     ewt_fac(:) = 1d0
     ! <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<

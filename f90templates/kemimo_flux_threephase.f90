@@ -69,7 +69,7 @@ contains
     open(newunit=unit, file=trim(modelDir)//trim(fname), status="old", iostat=ios)
     !check if file exists
     if(ios/=0) then
-       print *,"ERROR: problem while loading", trim(fname)
+       print *,"ERROR: problem while loading ", trim(fname)
        stop
     end if
 
@@ -79,7 +79,7 @@ contains
        read(unit,'(a)',iostat=ios) verbatim(i)
        !check if reading after EOF
        if(ios/=0) then
-          print *,"ERROR: problem while reading", trim(fname)
+          print *,"ERROR: problem while reading ", trim(fname)
           stop
        end if
     end do

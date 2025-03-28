@@ -160,22 +160,6 @@ contains
          ! Ignore if the layer is zero (gas-phase)
          if (layer < 1) flux(i) = 0d0
 
-         if (layer > 0) then
-            ! two-phase:
-            if (n(idx_surface_mask)*layerThickness > 1d0) then		
-               ! limit thermal desorption, CR desorption and photoprocesses to *layerthickness* of mly:
-               if (rtype == 1 .or. rtype == 2 .or. rtype == 3 .or. rtype == 4) then
-                  flux(i) = flux(i) * min(1d0, layerThickness/n(idx_surface_mask))
-               ! 2body reactions:
-               elseif (rtype == 5) then 
-                  if (n(idx_surface_mask) > 1d0) then
-                     ! From sect. 7 of Cuppen+2017, with minor adjustments:
-                     flux(i) = flux(i) / (n(idx_surface_mask))
-                  endif
-               endif
-            endif
-         endif
-
       end do
       !if species filter required use multiplicator
       if(minval(idxList)>0) then
@@ -216,21 +200,6 @@ contains
         endif
         
         flux(i) = kall(reactionArray(i,1)) * n(reactionArray(i,3)) * n(reactionArray(i,4))
-        if (layer > 0) then
-          ! two-phase:
-          if (n(idx_surface_mask)*layerThickness > 1d0) then		
-            ! limit thermal desorption, CR desorption and photoprocesses to *layerthickness* of mly:
-            if (rtype == 1 .or. rtype == 2 .or. rtype == 3 .or. rtype == 4) then
-              flux(i) = flux(i) * min(1d0, layerThickness/n(idx_surface_mask))
-            ! 2body reactions:
-            elseif (rtype == 5) then 
-              if (n(idx_surface_mask) > 1d0) then
-                ! From sect. 7 of Cuppen+2017, with minor adjustments:
-                flux(i) = flux(i) / (n(idx_surface_mask))
-              endif
-            endif
-          endif
-         endif
          
       end do
       !if species filter required use multiplicator

@@ -13,7 +13,7 @@ contains
     real*8,intent(in):: Gnot, Tdust, a_grain
     real*8:: invTd
     real*8:: ktmp(nrea)
-    real*8:: k_H2O_ph_0
+    real*8:: k_H2O_ph_0, k0_H2
     real*8, parameter :: beta = 2.5
     real*8, parameter :: T0 = 87.0 !87.0 np-ASW ice  - 56 silicate
     real*8, parameter :: S0 = 0.76 !0.76 np-ASW ice  - 0.95 silicate
@@ -42,6 +42,9 @@ contains
     invTd = 1d0/variable_Tgas
 
     k_H2O_ph_0 = 7.700d-10   ! Total gas-phase unattenuated dissociation rate from KIDA (Heays+2017)
+
+    ! H2 formation rate for gasphase only:
+    k0_H2 = 3d-18 * variable_Tgas**(5d-1)
 
 
     !!BEGIN_RATES

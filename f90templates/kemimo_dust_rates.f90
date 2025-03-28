@@ -10,7 +10,6 @@ contains
        Tdust, a_grain, Gnot)
     use kemimo_commons
     use kemimo_sticking
-    use kemimo_swappingrates
     implicit none
     real*8,intent(in):: n(nmols)
     real*8,intent(in):: ngas, variable_Tgas
@@ -27,6 +26,7 @@ contains
     real*8, parameter :: gamma_CO2 = 2.03d0
     real*8, parameter :: P_H2O_isrf = 5.4d-3
     real*8, parameter :: P_H2O_cr = 4.7d-3
+    real*8 :: k0_H2 
     integer::i
 
 
@@ -35,9 +35,6 @@ contains
     p4 = pexp + 4d0
     
     invTd = 1d0/variable_Tgas
-    ! -------------------------------------------------
-    ! Update swapping rates:
-    call computeSwapRates(invTd)
 
     ! -------------------------------------------------
     ! Update sticking rates:
@@ -72,6 +69,10 @@ contains
     Ffuva_H2 = kph_factor * (F_cr +  SS_H2 * Gnot*Fnot*exp(-1.8d0*variable_Av))
     Ffuva_HD = kph_factor * (F_cr +  SS_HD * Gnot*Fnot*exp(-1.8d0*variable_Av))
     Ffuva_N2 = kph_factor * (F_cr +  SS_N2 * Gnot*Fnot*exp(-1.8d0*variable_Av))
+
+    ! H2 formation rate for gasphase only:
+    k0_H2 = 3d-18 * variable_Tgas**(5d-1)
+
 
     !!BEGIN_RATES
     ! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
