@@ -90,9 +90,6 @@ class database:
 
         # prepare species based on files data (including gas)
         self.species = [mol(x, self.mass, layer=1) for x in self.speciesNames]
-        # if gasphase only, remoev all surface species
-        if nlayers == 0:
-            self.species = [x for x in self.species if x.isGas]
 
         # get H2 ortho/para idx:
         for idx, s in enumerate(self.species):
@@ -128,8 +125,6 @@ class database:
         # Read species data
         for species in self.species:
             species.idx = self.icount
-            if nlayers == 0 and not species.isGas:
-                continue
             # only for neutral species
             if species.charge == 0 and not species.name == "GRAIN0":
                 # check if species has no binding energy
@@ -195,6 +190,7 @@ class database:
             print("Assuming H2O binding energy for all species without information!")
 
         print("****************************************************")
+        self.gasOnly = False
         if nlayers == 2:
             print("Running three phase model")
             # create layers above 1:
@@ -203,29 +199,30 @@ class database:
             self.nlayers = 1
             print("Running with single surface layer (bulk ice)")
         elif nlayers == 0:
-            self.nlayers = 0
+            self.nlayers = 1
             print("Running with gas-phase only")
+            self.gasOnly = True
         else:
             raise ValueError("ERROR: nlayers should be in [0, 1, 2]. Exiting.")
 
         findReactionsStart = time.time()
-        if self.nlayers > 0:            
-            if self.limit2body == False:
-                # use combinatorics to find reactions
-                self.findReactions()
-            else:
-                self.loadReactions()
 
-            # add Hincelin+2015 H2 encounter-desorption?
-            if encounterDesorption:
-                self.addEncounterDesorption()
+        if self.limit2body == False:
+            # use combinatorics to find reactions
+            self.findReactions()
+        else:
+            self.loadReactions()
+
+        # add Hincelin+2015 H2 encounter-desorption?
+        if encounterDesorption:
+            self.addEncounterDesorption()
 
 
-            # add photorates using reactions from yield file
-            self.addPhotoRates()
+        # add photorates using reactions from yield file
+        self.addPhotoRates()
 
-            # add CR desorption rates
-            self.addCRdesorptionRates()
+        # add CR desorption rates
+        self.addCRdesorptionRates()
 
         # load gas phase form KIDA, given the species from dictionary
         self.loadKIDA()
@@ -256,14 +253,6 @@ class database:
         # Add mask reaction, only used for rate of mask change:
         self.maskReaction = [monolayer_reaction(mly_surface)]
 
-        if self.nlayers == 0:
-            # clear dust_rates, sticking_rates and swap_rates for gas-phase only
-            for fn in ['kemimo_dust_rates.f90', 'kemimo_sticking.f90', 'kemimo_swappingrates.f90']:
-                # copy template from ./f90templates
-                copyfile('./f90templates/' + fn,  fn)
-
-            # add Sternberg & Dalgarno H2 formation pseudo-reaction
-            self.addH2Formation()
 
         # Add dummy species used in reaction loop in kemimo_ode::
         dummy = dummy_species()
@@ -455,10 +444,9 @@ class database:
         # print a recap with info on the network
         self.printReacap()
 
-        if self.nlayers > 0:
-            # Adjust the mask reaction, add index and compute RHS
-            self.updateMaskReaction()
-            self.reactionsAll += self.maskReaction
+        # Adjust the mask reaction, add index and compute RHS
+        self.updateMaskReaction()
+        self.reactionsAll += self.maskReaction
 
         # dry run skips F90 preprocessing, compilation, and run
         if not dry:
@@ -580,7 +568,7 @@ class database:
 
 
             # Check if gas-phase photodissociation:
-            if rea.type == "gasphase_Av" and rea.formula == 2 and rea.kidatype in [1, 2, 3] and self.nlayers > 0:
+            if rea.type == "gasphase_Av" and rea.formula == 2 and rea.kidatype in [1, 2, 3]:
                 addReaction = True
                 # First add photodissociation for all relevant reactions present in gas-phase (KIDA)
 
@@ -637,14 +625,12 @@ class database:
 
 
             # skip reactions with unknown formula
-            if rea.formula not in [0, 1, 2, 3, 4, 5]:
+            if rea.formula not in [0, 1, 2, 3, 4, 5, 11]:
                 continue
             # append reaction found
             self.reactionsGas.append(rea)
 
         # #######################################################
-        if self.nlayers == 0:
-            return
         # NOTE: exception for CH3OH, following Karin Oberg et al (2009) branching ratios 5:1:1
         if 'CH3OH_gas' in speciesDict.keys():
             k_CH3OH_total = 1.69e-9  # KIDA total gasphase alpha.
@@ -798,7 +784,7 @@ class database:
                 copyfile('./f90templates/kemimo_fixed_H2.f90', './kemimo.f90')
             copyfile('./f90templates/kemimo_flux_threephase.f90',
                      './kemimo_flux.f90')
-        elif self.nlayers == 1:
+        else:
             if self.H2spin:
                 copyfile('./f90templates/kemimo_ode_twophase.f90',
                          './kemimo_ode.f90')
@@ -810,28 +796,17 @@ class database:
                      './kemimo.f90')
             copyfile('./f90templates/kemimo_flux_twophase.f90',
                         './kemimo_flux.f90')
-    
+
+        if self.H2spin:
+            copyfile('./f90templates/kemimo_rates.f90', './kemimo_rates.f90')
         else:
-            if self.H2spin:
-                copyfile('./f90templates/kemimo_ode_onephase.f90',
-                            './kemimo_ode.f90')
-            else:
-                copyfile('./f90templates/kemimo_ode_onephase_nospin.f90',
-                            './kemimo_ode.f90')
-            copyfile('./f90templates/kemimo_onephase.f90',
-                        './kemimo.f90')
-            copyfile('./f90templates/kemimo_flux_onephase.f90',
-                        './kemimo_flux.f90')
-            
-        if self.nlayers > 0:
-            copyfile('./f90templates/kemimo_reactionarray.f90', 'kemimo_reactionarray.f90')
-        else:
-            copyfile('./f90templates/kemimo_reactionarray_onephase.f90', 'kemimo_reactionarray.f90')
-                
+            copyfile('./f90templates/kemimo_rates_nospin.f90', './kemimo_rates.f90')
+
+         
         # copy remaining f90 files if missing:
         files = ["kemimo_commons.f90", "kemimo_sticking.f90", \
-            "kemimo_gas_rates.f90", "kemimo_dust_rates.f90",\
-                "kemimo_rates.f90", "kemimo_swappingrates.f90"]
+            "kemimo_gas_rates.f90", "kemimo_dust_rates.f90", "kemimo_reactionarray.f90",\
+                "kemimo_swappingrates.f90"]
 
         for fname in files:
             if not os.path.exists(fname):
@@ -847,23 +822,28 @@ class database:
 
 
 
-
-        # prepare RATES
-        if self.nlayers > 0:
-            # prepare SWAPPINGRATES
-            if self.doSwap:
-                doPP("kemimo_swappingrates.f90", {
-                    "SWAPPINGRATES": self.getSwappingRates()})
-            
-            # prepare STICKINGRATES
-            doPP("kemimo_sticking.f90", {
-                "STICKING": self.getSticking()})
-            
+        # -----------------------
+        # prepare RATES        
+        # prepare SWAPPINGRATES
+        if self.doSwap:
+            doPP("kemimo_swappingrates.f90", {
+                "SWAPPINGRATES": self.getSwappingRates()})
+        
+        # prepare STICKINGRATES
+        doPP("kemimo_sticking.f90", {
+            "STICKING": self.getSticking()})
+        
+        if self.gasOnly:
             doPP("kemimo_dust_rates.f90", {
-                 "RATES": self.getRatesF90(dustOnly=True)})
+                "RATES": ""})
+        else:
+            doPP("kemimo_dust_rates.f90", {
+                "RATES": self.getRatesF90(dustOnly=True)})
+        
             
         doPP("kemimo_gas_rates.f90", {"RATES": self.getRatesF90(gasOnly=True)})
-
+        
+        # -----------------------
         # prepare Python interface
         doPP_Python("pykemimo.py", {"ARRAYSIZE": self.getArraySizes(python=True),
                                     "IDXLIST": self.getIdxList(),
@@ -1602,15 +1582,12 @@ class database:
         arraySize += "integer,parameter::nmols=" + str(nmols) + "\n"
         arraySize += "!number of unique species\n"
         arraySize += "integer,parameter::nmolsu=" + \
-            str(self.nGasSpecies + int(min([1.0, self.nlayers]))*self.nDustSpecies + 3) + "\n"
+            str(self.nGasSpecies + self.nDustSpecies + 3) + "\n"
         arraySize += "!number of dust species\n"
         arraySize += "integer,parameter::nmols_dust=" + \
-            str((self.nlayers*self.nDustSpecies)) + "\n"
+            str(self.nlayers*self.nDustSpecies) + "\n"
         arraySize += "!number of reactions (nlayer*dust+gas)\n"
-        if self.nlayers > 1:
-            arraySize += "integer,parameter::nrea=" + str(nrea+1) + "\n"
-        else:
-            arraySize += "integer,parameter::nrea=" + str(nrea) + "\n"
+        arraySize += "integer,parameter::nrea=" + str(nrea+1) + "\n"
         arraySize += "!number of unique reactions (dust+gas)\n"
         arraySize += "!number of dust-phase reactions\n"
         arraySize += "integer,parameter::nreadust=" + \
@@ -1714,30 +1691,36 @@ class database:
             if rea.layer < 0:
                 continue
             if isinstance(rea, reaction):
-                ilayer = 1 # HERE WE NEED A LOOP IF WE WANT TO ADD MANTLE REACTIONS
-                # get indexes in F90 format
-                idxR = [str(rea.baseIdx), str(ilayer)]
-                for x in rea.reactants: 
-                    if x.isGas:
-                        idxR.append(str(x.idx + 1))
-                    else:
-                        idxR.append(str(int(x.idx + 1) + (ilayer-1)*offset))
-                idxP = []
-                for x in rea.products:
-                    if x.isGas:
-                        idxP.append(str(x.idx + 1))
-                    else:
-                        idxP.append(str(int(x.idx + 1) + (ilayer-1)*offset))
-                # fill missing species with dummies
-                idxR += [dummy] * (maxR - len(idxR))
-                idxP += [dummy] * (maxP - len(idxP))
+                for ilayer in range(1, self.nlayers+1):
+                    # Skip everything but 2body in layers below surface
+                    if ilayer > 1:
+                        continue
+                    # get indexes in F90 format
+                    idxR = [str(rea.baseIdx), str(ilayer)]
+                    for x in rea.reactants: 
+                        if x.isGas:
+                            idxR.append(str(x.idx + 1))
+                        else:
+                            idxR.append(str(int(x.idx + 1) + (ilayer-1)*offset))
+                    idxP = []
+                    for x in rea.products:
+                        if x.isGas:
+                            idxP.append(str(x.idx + 1))
+                        else:
+                            #if x.name in ["o_H2_surface", "p_H2_surface"]:
+                            #    idxP.append(dummy)
+                            #else:
+                            idxP.append(str(int(x.idx + 1) + (ilayer-1)*offset))
+                    # fill missing species with dummies
+                    idxR += [dummy] * (maxR - len(idxR))
+                    idxP += [dummy] * (maxP - len(idxP))
 
-                # ----------------------------------------------
-                # add mask reaction integer for the reaction
-                rtype = getReactionType(rea)
-                idxP += [str(rtype)]
-                # store the joined row
-                allIdx.append(" ".join(idxR + idxP))
+                    # ----------------------------------------------
+                    # add mask reaction integer for the reaction
+                    rtype = getReactionType(rea)
+                    idxP += [str(rtype)]
+                    # store the joined row
+                    allIdx.append(" ".join(idxR + idxP))
             else:
                 # get indexes in F90 format
                 idxR = [str(rea.baseIdx), str(0)]
@@ -2158,113 +2141,6 @@ class database:
             if len(RRs) == 2 and len(PPs) == 2:
                 rea = reaction(RRs, PPs, self.Ea, self.barrierWidths, self.Bratios, yieldPD=-43)
                 self.reactions.append(rea)
-
-    # ***********************************
-    # add Sternberg & Dalgarno 1995 H2 (HD, D2) formation on grains
-    def addH2Formation(self):
-    
-        # first find the H_gas and D_gas idx
-        Hidx = None
-        Didx = None
-        HDidx = None
-        if self.H2spin:
-            oH2idx = None
-            pH2idx = None
-            oD2idx = None
-            pD2idx = None
-            for s in self.species:
-                if s.name == 'H_gas':
-                    Hidx = s.idx
-                if s.name == 'D_gas':
-                    Didx = s.idx
-                if s.name == 'p_H2_gas':
-                    pH2idx = s.idx
-                if s.name == 'o_H2_gas':
-                    oH2idx = s.idx
-                if s.name == 'p_D2_gas':
-                    pD2idx = s.idx
-                if s.name == 'o_D2_gas':
-                    oD2idx = s.idx
-                if s.name == 'HD_gas':
-                    HDidx = s.idx
-            if oH2idx == None or pH2idx == None or Hidx == None:
-                print("Error: (o/p)H2_gas or H_gas idx not found")
-                sys.exit()
-        else:
-            D2idx = None
-            H2idx = None
-            for s in self.species:
-                if s.name == 'H_gas':
-                    Hidx = s.idx
-                if s.name == 'D_gas':
-                    Didx = s.idx
-                if s.name == 'H2_gas':
-                    H2idx = s.idx
-                if s.name == 'HD_gas':
-                    HDidx = s.idx
-                if s.name == 'D2_gas':
-                    D2idx = s.idx
-            if H2idx == None or Hidx == None:
-                print("Error: H2_gas or H_gas idx not found")
-                sys.exit()
-
-
-        # now add the reactions
-        RRs = [self.species[Hidx], self.species[Hidx]]
-        if self.H2spin:
-            # split in spin states
-            PPs = [self.species[oH2idx]]
-            rea = reaction(RRs, PPs, self.Ea, self.barrierWidths, self.Bratios, yieldPD=-43)
-            rea.krateF90 = "0.75 * k0_H2"
-            rea.layer = 0
-            self.reactionsGas.append(rea)
-
-            PPs = [self.species[pH2idx]]
-            rea = reaction(RRs, PPs, self.Ea, self.barrierWidths, self.Bratios, yieldPD=-43)
-            rea.krateF90 = "0.25 * k0_H2"
-            rea.layer = 0
-            self.reactionsGas.append(rea)
-        else:
-            PPs = [self.species[H2idx]]
-            rea = reaction(RRs, PPs, self.Ea, self.barrierWidths, self.Bratios, yieldPD=-43)
-            rea.krateF90 = "k0_H2"
-            rea.layer = 0
-            self.reactionsGas.append(rea)
-
-        if Didx != None:
-            # D + D -> D2
-            if self.H2spin:
-                # split in spin states
-                RRs = [self.species[Didx], self.species[Didx]]
-                PPs = [self.species[oD2idx]]
-                rea = reaction(RRs, PPs, self.Ea, self.barrierWidths, self.Bratios, yieldPD=-43)
-                rea.krateF90 = "0.67 * k0_H2"
-                rea.layer = 0
-                self.reactionsGas.append(rea)
-
-                PPs = [self.species[pD2idx]]
-                rea = reaction(RRs, PPs, self.Ea, self.barrierWidths, self.Bratios, yieldPD=-43)
-                rea.krateF90 = "0.33 * k0_H2"
-                rea.layer = 0
-                self.reactionsGas.append(rea)
-            else:
-                RRs = [self.species[Didx], self.species[Didx]]
-                PPs = [self.species[D2idx]]
-                rea = reaction(RRs, PPs, self.Ea, self.barrierWidths, self.Bratios, yieldPD=-43)
-                rea.krateF90 = "k0_H2"
-                rea.layer = 0
-                self.reactionsGas.append(rea)
-
-            # H + D -> HD
-            RRs = [self.species[Hidx], self.species[Didx]]
-            PPs = [self.species[HDidx]]
-
-            rea = reaction(RRs, PPs, self.Ea, self.barrierWidths, self.Bratios, yieldPD=-43)
-            rea.krateF90 = "k0_H2"
-            rea.layer = 0
-            self.reactionsGas.append(rea)
-
-        return
 
 
 # ***********************************

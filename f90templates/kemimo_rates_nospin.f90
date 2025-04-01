@@ -23,10 +23,10 @@ contains
     ! -------------------------------------------------
     ! Estimate N_H2, N_CO etc from Av:
     N_H2 = 0.5 * 1.59d21 * variable_Av
-    N_CO = N_H2 * n(idx_CO_gas)/(n(idx_o_H2_gas)+n(idx_p_H2_gas))
-    N_HD = N_H2 * n(idx_HD_gas)/(n(idx_o_H2_gas)+n(idx_p_H2_gas))
-    N_HI = N_H2 * n(idx_H_gas)/(n(idx_o_H2_gas)+n(idx_p_H2_gas))
-    N_N2 = N_H2 * n(idx_N2_gas)/(n(idx_o_H2_gas)+n(idx_p_H2_gas))
+    N_CO = N_H2 * n(idx_CO_gas)/n(idx_H2_gas)
+    N_HD = N_H2 * n(idx_HD_gas)/n(idx_H2_gas)
+    N_HI = N_H2 * n(idx_H_gas)/n(idx_H2_gas)
+    N_N2 = N_H2 * n(idx_N2_gas)/n(idx_H2_gas)
 
 
 

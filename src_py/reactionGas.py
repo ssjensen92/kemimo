@@ -200,6 +200,7 @@ class reactionGas:
         # 5: ionpol2
         # 6: Troe fall-off (NOT SUPPORTED!)
         # 7: grain recombination
+        # 11: gas-phase only formation reaction for H+H -> H2
         arow = dataRow
         arow["formula"] = int(arow["formula"])
         self.formula = arow["formula"]
@@ -272,6 +273,9 @@ class reactionGas:
                     ")*sqrt(3d2/" + Tgasvar + ") + ("
                 gpart += arow["c"] + ")**2*28.501d0/" + Tgasvar
                 KK += "*(1d0 " + gpart + ")"
+        elif arow["formula"] == 11:
+            KK = arow["a"]
+            KK += '* k0_H2'
         else:
             print(srow)
             print("ERROR: KIDA formula " + \
