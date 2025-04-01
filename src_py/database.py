@@ -1246,7 +1246,7 @@ class database:
             for i, species in enumerate(rs+ps):
                 if species in spinSpecies.keys():
                     isSpinSpecies = True
-                
+                    # Note that I use spin here, even if the prefixes are not necessarily related to spin!
                     nSpinIsomers = len(spinSpecies[species])
                     # If one spinSpecies, simply change name and move on. 
                     if nSpinIsomers == 1:
@@ -1273,18 +1273,18 @@ class database:
                             spinDesignator1.append(ps[i-2].strip("_"+species))
                             spinDesignator2.append(ps2[i-2].strip("_"+species))
                     else:
-                        print("More than two spin variants of species. Not supported for now")
+                        print("More than two prefixes of species. Not supported for now")
                 else:
                     continue
 
-            # Perform check that we have no spin conversion:
+            # Perform check that we have no prefix conversion:
             if len(spinDesignator1) > 1:
                 if spinDesignator1[0] != spinDesignator1[1]:
-                    print("Error. A spin conversion occured. Check that this is not problematic.")
+                    print("Error. A prefix conversion occured. Check that this is not problematic. Note that this is ok for o/p to l/c")
                     print(entry, spinDesignator1)
             if len(spinDesignator2) > 1:
                 if spinDesignator2[0] != spinDesignator2[1]:
-                    print("Error. A spin conversion occured. Check that this is not problematic.")
+                    print("Error. A prefix conversion occured. Check that this is not problematic. Note that this is ok for o/p to l/c.")
                     print(entry, spinDesignator2)
 
 
