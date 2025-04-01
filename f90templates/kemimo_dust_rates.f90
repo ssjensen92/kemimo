@@ -54,7 +54,7 @@ contains
     !FUV photons per bound molecule per unit of time, 1/s
     kph_factor = a_grain**2.0 * pi * xdust * ngas
     ! Adjust/scale F_cr (CR-UV flux) based on the current CR flux
-    F_cr = 0d0 !variable_crflux * F_cr_not / 1.3d-17
+    F_cr = variable_crflux * F_cr_not / 1.3d-17
     ! Av attenuation from Hollenbach+2009
     Ffuva = kph_factor * (F_cr +  Gnot*Fnot*exp(-1.8d0*variable_Av))
 
