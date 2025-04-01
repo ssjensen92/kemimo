@@ -1,0 +1,21 @@
+###########
+#photodesorption yields (Hollenbach+2009), Tab.1
+#http://iopscience.iop.org/article/10.1088/0004-637X/690/2/1497/pdf
+#format is
+# reactant, product, product, ..., yield
+CO	CO_gas		1e-3
+H2O	H2O_gas		1e-3
+H2O	OH_gas H_gas 2e-3
+O	O_gas		1e-4
+OH	OH_gas		1e-3
+O2	O2_gas		1e-3
+C	C_gas		1e-3
+CH	CH_gas		1e-3
+CH2	CH2_gas		1e-3
+CH3	CH3_gas		1e-3
+CH4	CH4_gas		1e-3
+CH3OH CH3OH_gas 1e-3
+H2CO H2CO_gas 1e-3
+S S_gas 1e-3
+Fe Fe_gas 1e-3
+
