@@ -1,0 +1,33 @@
+#############
+#atoms with mass in amu
+H 1
+Hc 1
+He 4
+C 12
+N 14
+O 16
+F 19
+Na 23
+Mg 24
+Si 28
+P 31
+S 32
+Cl 35
+Fe 56
+E 5.44320575e-4
+D 2
+
+#special
++ 0
+- 0
+CR 0
+CRP 0
+Photon 0
+GRAIN0 0
+GRAIN- 0
+p_ 0
+o_ 0
+m_ 0
+l_ 0
+c_ 0
+i_ 0
