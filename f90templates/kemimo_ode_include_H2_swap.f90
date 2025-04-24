@@ -16,8 +16,8 @@ contains
     integer,parameter::lrw=20+16*nmols+3*nmols**2
     integer,parameter::liw=30
     !tolerances
-    real*8,parameter::rtol(nmols) = 1d-6
-    real*8,parameter::atol(nmols) = 1d-22
+    real*8,parameter::rtol(nmols) = 1d-5
+    real*8::atol(nmols) = 1d-20
     integer::neqa(1),itol,itask,istate,iopt,mf
     integer::iwork(liw)
     real*8::rwork(lrw),tloc
@@ -65,12 +65,13 @@ contains
     iwork(6) = int(1e5) !maximum number of iteration before warning
     iwork(5) = 2 !maximum integration order
     MF = 121 ! hardcode jacobian, internally generated sparsity
-
     istate = 1
     tloc = 0d0
 
     ! store initial abundances:
     ni(:) = n(:)
+    ! adjust absolute tolerance for abundant species:
+    atol = max(atol(:), 1d-16 * n(:))
     ! count attempts
     ncount = 0
     do
@@ -109,7 +110,7 @@ contains
             stop
           endif
           n(:) = ni(:)
-          dt = dt / 3d0
+          dt = dt / 5d0
           istate = 1
        else
           !unknown problem stop program
@@ -128,6 +129,7 @@ contains
     use kemimo_commons
     use kemimo_reactionarray
     use kemimo_rates
+    use kemimo_swappingrates
     implicit none
     integer::neq,i
     real*8::n(neq),tt,dn(neq)
@@ -135,10 +137,13 @@ contains
     integer:: layer, rtype
     real*8 :: Nsurface, Nmantle
     real*8 :: alpha, dnsdt, R
+    real*8 :: Rswap_total, Rswap_total2, Rswap
     integer :: offset
 
     dn(:) = 0d0
     n(idx_dummy) = 1d0
+
+
     ! ----------------------------------------------------------------------
     ! Chemistry part:
     do i=1, nrea-1
@@ -173,8 +178,7 @@ contains
 
     end do
     
-    !dn(idx_p_H2_0001) = 0d0
-    !dn(idx_o_H2_0001) = 0d0
+    !dn(idx_H2_surface) = 0d0
     dn(idx_dummy) = 0d0
 
     do i=surface_start, surface_end
@@ -183,17 +187,48 @@ contains
 
     R = dn(idx_surface_mask)
     dn(idx_surface_mask) = dn(idx_surface_mask)*kall(nrea)
-    if (dn(idx_surface_mask) > real(layerThickness)) reduce_dt = 1
+    if (dn(idx_surface_mask) > real(layerThickness)) then 
+      reduce_dt = 1
+    else
+      reduce_dt = 0
+    endif
 
+    ! ----------------------------------------------------------
     ! Nmantle
     Nmantle = n(idx_mantle_mask) / kall(nrea)
     Nsurface = n(idx_surface_mask) / kall(nrea)
 
-    ! ----------------------------------------------------------
-    ! Transfer part:
     ! Determine offset between layer indices:
     offset = mantle_start - surface_start
 
+    ! ----------------------------------------------------------
+    ! Swapping rates mantle-surface:
+    Rswap_total = 0d0
+    Rswap_total2 = 0d0
+    do i=mantle_start, mantle_end
+      if (n(i) .gt. 1d-50) then
+        Rswap = n(i) * kswap(i-mantle_start+1)
+        if (n(idx_mantle_mask) > 1d0) Rswap = Rswap / n(idx_mantle_mask)
+        dn(i) = dn(i) - Rswap
+        dn(i-offset) = dn(i-offset) + Rswap
+        Rswap_total = Rswap_total + Rswap
+      else
+        cycle
+      endif
+    enddo
+
+    do i=surface_start, surface_end
+      if (n(i) .gt. 1d-50) then
+        Rswap = (n(i)/Nsurface) * Rswap_total
+        Rswap_total2 = Rswap_total2 + Rswap
+        dn(i) = dn(i) - Rswap
+        dn(i+offset) = dn(i+offset) + Rswap
+      else
+        cycle
+      endif
+    enddo
+
+    ! Transfer part:
     ! Calculate individual rates:
     ! --------------------------------------
     ! accretion:
@@ -205,8 +240,7 @@ contains
       dn(idx_surface_mask) = dn(idx_surface_mask) - dnsdt * kall(nrea)
       dn(idx_mantle_mask) = dn(idx_mantle_mask) + dnsdt * kall(nrea)
       do i=surface_start, surface_end
-        if (i == idx_p_H2_0001) cycle
-        if (i == idx_o_H2_0001) cycle
+        !if (i == idx_H2_surface) cycle
         dn(i) = dn(i) - dnsdt * n(i)/Nsurface
         dn(i+offset) = dn(i+offset) + dnsdt * n(i)/Nsurface
       enddo
@@ -223,13 +257,13 @@ contains
       dn(idx_mantle_mask) = dn(idx_mantle_mask) + dnsdt * kall(nrea)
       
       do i=surface_start, surface_end
-        if (i == idx_p_H2_0001) cycle
-        if (i == idx_o_H2_0001) cycle
+        !if (i == idx_H2_surface) cycle
         dn(i) = dn(i) - dnsdt * n(i+offset)/Nmantle
         dn(i+offset) = dn(i+offset) + dnsdt * n(i+offset)/Nmantle
       enddo
 
     endif
+
 
     dn_surface = dn(idx_surface_mask)
 
@@ -257,12 +291,14 @@ contains
     use kemimo_commons
     use kemimo_reactionarray
     use kemimo_rates
+    use kemimo_swappingrates
     implicit none
     integer::neq, j, ian, jan, i, ii, offset, layer, rtype
     real*8::tt, n(neq), pdj(neq)
     real*8:: flux
     real*8 :: Nsurface, Nmantle
     real*8 :: alpha, dnsdt, R
+    real*8 :: Rswap_total, Rswap
 
     !!BEGIN_JACOBIAN
     ! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -274,6 +310,7 @@ contains
     n(idx_dummy) = 1d0
     pdj(:) = 0d0
     if (j == idx_dummy) return
+
 
     ! Chemistry part:
     do ii=1, nrea-1
@@ -325,8 +362,6 @@ contains
 
     end do
 
-    !pdj(idx_p_H2_0001) = 0d0
-    !pdj(idx_o_H2_0001) = 0d0
     pdj(idx_dummy) = 0d0
 
     do i=surface_start, surface_end
@@ -336,15 +371,43 @@ contains
     R = pdj(idx_surface_mask)
     pdj(idx_surface_mask) = pdj(idx_surface_mask) * kall(nrea)
 
-    ! ----------------------------------------------------------
-    ! Transfer part:
-    ! Determine offset between layer indices:
-    offset = mantle_start - surface_start
 
+    ! ----------------------------------------------------------
     ! Nmantle, Nsurface
     Nmantle = n(idx_mantle_mask) / kall(nrea)
     Nsurface = n(idx_surface_mask) / kall(nrea)
 
+    ! Determine offset between layer indices:
+    offset = mantle_start - surface_start
+
+    ! ----------------------------------------------------------
+    ! Swapping rates mantle-surface:
+    Rswap_total = 0d0
+    do i=mantle_start, mantle_end
+      if (i == j) cycle
+      if (n(i) .gt. 1d-50) then
+        Rswap = n(i) * kswap(i-mantle_start+1)
+        if (n(idx_mantle_mask) > 1d0) Rswap = Rswap / n(idx_mantle_mask)
+        pdj(i) = pdj(i) - Rswap
+        pdj(i-offset) = pdj(i-offset) - Rswap
+        Rswap_total = Rswap_total + Rswap
+      else
+        cycle
+      endif
+    enddo
+
+    do i=surface_start, surface_end
+      if (i == j) cycle
+      if (n(i) .gt. 1d-50) then
+        Rswap = (n(i)/Nsurface) * Rswap_total
+        pdj(i) = pdj(i) - Rswap
+        pdj(i+offset) = pdj(i+offset) + Rswap
+      else
+        cycle
+      endif
+    enddo
+    ! ----------------------------------------------------------
+    ! Transfer part:
     ! Calculate individual rates:
     ! --------------------------------------
     ! accretion:
@@ -357,8 +420,7 @@ contains
       pdj(idx_mantle_mask) = pdj(idx_mantle_mask) + dnsdt * kall(nrea)
       do i=surface_start, surface_end
         if (pdj(i) == 0d0) cycle
-        if (i == idx_p_H2_0001) cycle
-        if (i == idx_o_H2_0001) cycle
+        !if (i == idx_H2_surface) cycle
         if (i == j) cycle
         pdj(i) = pdj(i) - dnsdt * n(i)/Nsurface
         pdj(i+offset) = pdj(i+offset) + dnsdt * n(i)/Nsurface
@@ -376,14 +438,14 @@ contains
       
       do i=surface_start, surface_end
         if (pdj(i) == 0d0) cycle
-        if (i == idx_p_H2_0001) cycle
-        if (i == idx_o_H2_0001) cycle
+        !if (i == idx_H2_surface) cycle
         if (i == j) cycle
         pdj(i) = pdj(i) - dnsdt * n(i+offset)/Nmantle
         pdj(i+offset) = pdj(i+offset) + dnsdt * n(i+offset)/Nmantle
       enddo
 
     endif
+
 
     ewt_fac(:) = 1d0
 
@@ -392,10 +454,8 @@ contains
     ! Loop on species (This loop could be reduced)
     do i=1, surface_end
       if (i == idx_dummy) cycle
-      if (i == idx_o_H2_0001) cycle
-      if (i == idx_o_H2_0002) cycle
-      if (i == idx_p_H2_0001) cycle
-      if (i == idx_p_H2_0002) cycle
+      if (i == idx_H2_surface) cycle
+      if (i == idx_H2_mantle) cycle
       ewt_fac(i) = abs(pdj(idx_surface_mask) * ndns * n(i) / (dn_surface * ndns))
       if ((ewt_fac(i) < 1d0) .or. (ewt_fac(i) /= ewt_fac(i))) ewt_fac = 1d0
     enddo

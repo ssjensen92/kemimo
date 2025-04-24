@@ -61,7 +61,7 @@ contains
   !*******************
   !compute rates and store into commons kall(:)
   subroutine kemimo_computeRates(n, ngas, variable_Tgas, variable_crflux, &
-              variable_Av, Td, size_min, size_max, Ghabing, onlyGas, onlyDust)
+              variable_Av, Td, size, Ghabing, onlyGas, onlyDust)
     use kemimo_commons
     use kemimo_rates
     use kemimo_reactionarray
@@ -69,28 +69,23 @@ contains
     real*8,intent(in)::n(nmols)
     real*8,intent(in)::ngas, variable_Tgas
     real*8,intent(in)::variable_crflux, variable_Av
-    real*8,intent(in),optional::size_min, size_max, Ghabing, Td
+    real*8,intent(in),optional::size, Ghabing, Td
     logical,optional,intent(in)::onlyGas, onlyDust
-    real*8::amin, amax, Gnot, Tdust
+    real*8::a_grain, Gnot, Tdust
 
     call init_reactionarray()
-
-    !default distribution min/max size, cm
-    !amin = 5d-7
-    !amax = 2.5d-5
-    amin = 1d-5
-    amax = 1d-5
+    ! standard dust grain radius in cm:
+    a_grain = 1d-5
     Gnot = 1d0 !Draine flux in Habing units
     Tdust = variable_Tgas
 
     !replace optinal values if present
-    if(present(size_min)) amin = size_min
-    if(present(size_max)) amax = size_max
+    if(present(size)) a_grain = size
     if(present(Ghabing)) Gnot = Ghabing
     if(present(Td)) Tdust = Td
 
     call computeRates(n, ngas, variable_Tgas, variable_crflux, variable_Av, &
-        Tdust, amin, amax, Gnot)
+        Tdust, a_grain, Gnot)
 
     if(present(onlyGas) .and. onlyGas .eqv. .true.) then
       call switchOffDustRates()
@@ -129,7 +124,7 @@ contains
     real(kind=c_double),intent(inout)::n(nmols)
     real(kind=c_double),intent(inout)::dt
     real(kind=c_double) :: OPR, H2_ice, delta_H2_ortho_ice, delta_H2_para_ice, R
-    real(kind=c_double) :: Nsurface, Nmantle
+    real(kind=c_double) :: Nsurface, Nmantle, theta_CO, alpha
     integer :: i
     integer,parameter:: offset = mantle_start - surface_start
     ! ----------------------------------------------------------------
@@ -139,17 +134,53 @@ contains
     ! --------------------------------------------------
     ! Update H2_ice for current ndns, H2_coverage (calculated in computeRates call!)
     H2_ice = H2_coverage * ndns * layerThickness
-
     ! Change:
-    delta_H2_para_ice = H2_ice*(1d0 - OPR) - n(idx_p_H2_0001)
-    delta_H2_ortho_ice = H2_ice*OPR - n(idx_o_H2_0001)
+    delta_H2_para_ice = H2_ice*(1d0 - OPR) - n(idx_p_H2_surface)
+    delta_H2_ortho_ice = H2_ice*OPR - n(idx_o_H2_surface)
     
     ! Update surface mask based on H2 update:
     R = (delta_H2_para_ice + delta_H2_ortho_ice)
-    n(idx_surface_mask) = n(idx_surface_mask) + R/ndns
-    
-    n(idx_p_H2_0001) = H2_ice*(1d0 - OPR)
-    n(idx_o_H2_0001) = H2_ice*OPR
+    n(idx_surface_mask) = n(idx_surface_mask) + R*kall(nrea)
+    Nsurface = n(idx_surface_mask) / kall(nrea)
+    Nmantle = n(idx_mantle_mask) / kall(nrea)
+    ! Now check if mask is
+    if (R > 0d0) then
+      alpha = max(0d0, n(idx_surface_mask) - (real(layerThickness) - 1d0))
+      if (alpha > 0d0) then
+        do i=surface_start, surface_end
+          if (i == idx_p_H2_surface) cycle
+          if (i == idx_o_H2_surface) cycle
+          n(i) = n(i) - alpha * R * n(i)/Nsurface
+          n(i+offset) = n(i+offset) + alpha * R * n(i)/Nsurface
+        enddo
+        n(idx_surface_mask) = n(idx_surface_mask) - alpha*R*kall(nrea)
+        n(idx_mantle_mask) = n(idx_mantle_mask) + alpha*R*kall(nrea)
+      endif
+    elseif (R < 0d0) then
+      alpha = min(1d0, Nmantle / min(Nsurface, ndns))
+      if (alpha > 0d0) then
+        do i=surface_start, surface_end
+          if (i == idx_p_H2_surface) cycle
+          if (i == idx_o_H2_surface) cycle
+          n(i) = n(i) - alpha * R * n(i+offset)/Nmantle
+          n(i+offset) = n(i+offset) + alpha * R * n(i+offset)/Nmantle
+        enddo
+        n(idx_surface_mask) = n(idx_surface_mask) - alpha*R*kall(nrea)
+        n(idx_mantle_mask) = n(idx_mantle_mask) + alpha*R*kall(nrea)
+      endif
+    endif
+
+
+
+    ! Update Y_CO
+    theta_CO = n(idx_CO_surface) / max(n(idx_surface_mask)*ndns, ndns)
+    theta_CO = max(0d0, min(1d0, theta_CO))
+    Y_CO = (1d0 - theta_CO) * 3d-4 + 1d-2 * theta_CO
+    if (Y_CO /= Y_CO) Y_CO = 3d-4
+    kall(CO_desorption_idx) = Y_CO * Ffuva_CO
+
+    n(idx_p_H2_surface) = H2_ice*(1d0 - OPR)
+    n(idx_o_H2_surface) = H2_ice*OPR
 
     call dochem(n(:), dt)
 

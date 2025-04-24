@@ -58,7 +58,7 @@ contains
 
   end subroutine kemimo_loadverbatim
 
- !*******************
+  !*******************
   !compute rates and store into commons kall(:)
   subroutine kemimo_computeRates(n, ngas, variable_Tgas, variable_crflux, &
               variable_Av, Td, size, Ghabing, onlyGas, onlyDust)
@@ -96,6 +96,7 @@ contains
     end if
 
 
+
   end subroutine kemimo_computeRates
     
   !************************
@@ -122,11 +123,26 @@ contains
     implicit none
     real(kind=c_double),intent(inout)::n(nmols)
     real(kind=c_double),intent(inout)::dt
-    real(kind=c_double) :: theta_CO
+    real(kind=c_double) :: OPR, H2_ice, delta_H2_ortho_ice, delta_H2_para_ice, R
+    real(kind=c_double) :: Nsurface, Nmantle, theta_CO, alpha
+    integer :: i
+    integer,parameter:: offset = mantle_start - surface_start
+    ! ----------------------------------------------------------------
+    ! Update OPR
+    OPR = n(idx_o_H2_gas)/(n(idx_p_H2_gas)+ n(idx_o_H2_gas))
 
-    ! if surface mask empty, add tiny amount to start convergence    
-    if (n(idx_surface_mask) < 1d-40) n(idx_surface_mask) = 1d-40
+    ! --------------------------------------------------
+    ! Update H2_ice for current ndns, H2_coverage (calculated in computeRates call!)
+    H2_ice = H2_coverage * ndns * layerThickness
+    ! Change:
+    delta_H2_para_ice = H2_ice*(1d0 - OPR) - n(idx_p_H2_0001)
+    delta_H2_ortho_ice = H2_ice*OPR - n(idx_o_H2_0001)
     
+    ! Update surface mask based on H2 update:
+    R = (delta_H2_para_ice + delta_H2_ortho_ice)
+    n(idx_surface_mask) = n(idx_surface_mask) + R*kall(nrea)
+
+
     ! Update Y_CO
     theta_CO = n(idx_CO_0001) / max(n(idx_surface_mask)*ndns, ndns)
     theta_CO = max(0d0, min(1d0, theta_CO))
@@ -134,7 +150,9 @@ contains
     if (Y_CO /= Y_CO) Y_CO = 3d-4
     kall(CO_desorption_idx) = Y_CO * Ffuva_CO
 
-    
+    n(idx_p_H2_0001) = H2_ice*(1d0 - OPR)
+    n(idx_o_H2_0001) = H2_ice*OPR
+
     call dochem(n(:), dt)
 
   end subroutine kemimo_dochem
