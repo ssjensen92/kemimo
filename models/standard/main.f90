@@ -21,37 +21,38 @@ program main
 
   ! Define physical initial conditions:
   Tgas = 1.0d1 ! gas temperature, K
-  ntot = 2.0d4 ! gas density, cm-3
-  Gnot = 1.0d0 ! radiation G0
+  ntot = 2d4 ! gas density, cm-3
+  Gnot = 1d0 ! radiation G0
   tend = 1d7*spy ! ending time, s
-  Av = 5d0 ! visual extinction
+  Av = 10d0 ! visual extinction
   crflux = 1.3d-17 !CR ionization rate, 1/s
 
   ! ----------------------------------------------------------------
   ! Chemical initial conditions
   ! init chemical species, cm-3
   n(:) = 0d0
-  ! Have to set dummy species to one.
-  n(idx_dummy) = 1d0
-  ! species
-  n(idx_H_gas) = 5d-5*ntot
-  n(idx_H2_gas) = 5d-1*ntot
-  n(idx_He_gas) = 9.75d-2*ntot
-  n(idx_Cj_gas) = 7.86d-5*ntot
-  n(idx_N_gas) = 2.47d-5*ntot
-  n(idx_O_gas) = 1.8d-4*ntot
-  n(idx_Sj_gas) = 9.14d-8*ntot
-  n(idx_Sij_gas) = 9.74d-9*ntot
-  n(idx_Naj_gas) = 2.25d-9*ntot
-  n(idx_Fej_gas) = 2.74d-9*ntot
-  n(idx_Mgj_gas) = 1.09d-9*ntot
-  n(idx_Clj_gas) = 2.16d-10*ntot
-  n(idx_Pj_gas) = 1d-9*ntot
+  !n(idx_H_gas) = 1d-8*ntot
+  n(idx_p_H2_gas) = ntot*5d-1 * (1d0 - 1d-3)
+  n(idx_o_H2_gas) = ntot*5d-1 * 1d-3
+  !n(idx_H2_gas) = ntot*5d-1
+  n(idx_He_gas) = 9.0d-2*ntot
+  n(idx_O_gas) = 2.56d-4*ntot
+  n(idx_Cj_gas) = 1.2d-4*ntot
+  n(idx_HD_gas) = 1.6d-5*ntot
+  n(idx_N_gas) = 7.6d-5*ntot
+  n(idx_Sj_gas) = 8.0d-8*ntot
+  n(idx_Sij_gas) = 8.0d-9*ntot
+  n(idx_Mgj_gas) = 7.0d-9*ntot
+  n(idx_Fej_gas) = 3.0d-9*ntot
+  n(idx_Naj_gas) = 2.0d-9*ntot
+  n(idx_Clj_gas) = 1.0d-9*ntot
+  n(idx_Pj_gas) = 2d-10*ntot
+  !n(idx_F_gas) = 2d-9*ntot
   n(idx_E_gas) = n(idx_Cj_gas) + n(idx_Clj_gas) + n(idx_Sj_gas) + n(idx_Sij_gas) + n(idx_Naj_gas) + n(idx_Fej_gas) + n(idx_Mgj_gas) + n(idx_Pj_gas)
 
-  !n(idx_HD_gas) = 1.5d-5*ntot
   ! Set GRAIN:
   n(idx_GRAIN0_gas) = xdust * ntot
+
   
   ! -----------------------
 
@@ -82,7 +83,7 @@ program main
     else
       dt = dt * 1.1
     endif
-
+    dt = min(5d5 * spy, dt)
     t = t + dt
 
     ! --------------------------------------------------
@@ -98,9 +99,11 @@ program main
     old_mask = mask
     ! --------------------------------------------------
     ! Optional output once in a while:
-    if (mod(n_loop, 5) == 0) then
-      print *, 'mask: ', n(idx_surface_mask)
-      call kemimo_printFluxes(n(:), 8, (/idx_H2O_surface/), .false.)
+    if (mod(n_loop, 2) == 0) then
+      print *, 'mask: ', n(idx_surface_mask), ', time: ',t/spy
+      !call kemimo_printFluxes(n(:), 5, (/idx_c_C3H2_gas/), .false.)
+      !call kemimo_printFluxes(n(:), 5, (/idx_GRAIN0_gas/), .false.)
+      call kemimo_printFluxes(n(:), 5, (/idx_CH3OH_gas/), .false.)
     endif
     ! increase step count
     n_loop = n_loop + 1
