@@ -35,8 +35,7 @@ program main
   n(idx_dummy) = 1d0
   ! species
   n(idx_H_gas) = 5d-5*ntot
-  n(idx_p_H2_gas) = ntot*4.5d-1
-  n(idx_o_H2_gas) = ntot*4.5d-2
+  n(idx_H2_gas) = 5d-1*ntot
   n(idx_He_gas) = 9.75d-2*ntot
   n(idx_Cj_gas) = 7.86d-5*ntot
   n(idx_N_gas) = 2.47d-5*ntot
@@ -50,7 +49,7 @@ program main
   n(idx_Pj_gas) = 1d-9*ntot
   n(idx_E_gas) = n(idx_Cj_gas) + n(idx_Clj_gas) + n(idx_Sj_gas) + n(idx_Sij_gas) + n(idx_Naj_gas) + n(idx_Fej_gas) + n(idx_Mgj_gas) + n(idx_Pj_gas)
 
-  n(idx_HD_gas) = 1.5d-5*ntot
+  !n(idx_HD_gas) = 1.5d-5*ntot
   ! Set GRAIN:
   n(idx_GRAIN0_gas) = xdust * ntot
   
@@ -101,7 +100,7 @@ program main
     ! Optional output once in a while:
     if (mod(n_loop, 5) == 0) then
       print *, 'mask: ', n(idx_surface_mask)
-      call kemimo_printFluxes(n(:), 8, (/idx_H2O_0001/), .false.)
+      call kemimo_printFluxes(n(:), 8, (/idx_H2O_surface/), .false.)
     endif
     ! increase step count
     n_loop = n_loop + 1

@@ -1,0 +1,2497 @@
+# -*- coding: utf-8 -*-
+import numpy as np
+import ctypes
+import numpy.ctypeslib as npctypes
+
+# define aliases for complicated variable types
+int_byref = ctypes.POINTER(ctypes.c_int)
+dble_byref = ctypes.POINTER(ctypes.c_double)
+array_1d_int = npctypes.ndpointer(dtype=np.int,ndim=1,flags='CONTIGUOUS')
+array_1d_double = npctypes.ndpointer(dtype=np.float,ndim=1,flags='FORTRAN')
+array_2d_double = npctypes.ndpointer(dtype=np.float,ndim=2,flags='CONTIGUOUS')
+array_pointer = ctypes.POINTER(ctypes.c_int)
+
+class Pykemimo(object):
+
+    def __init__(self):
+        fortran = npctypes.load_library('libkemimo.so', loader_path = '.')
+        self.lib = fortran
+        # constants
+        self.spy = 365.0 * 24.0 * 3600.0
+        self.pmass = 1.6726219e-24 # g
+        self.gravity = 6.67259e-8  # cgs
+        self.au2cm = 1.49597871e13 # AU -> cm
+        self.kb = 1.38064852e-16   # erg/K
+
+        ##BEGIN_ARRAYSIZE
+        # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+        # NOTE: This block is auto-generated
+        # WHEN: 2025-04-24 08:51:42
+        # CHANGESET: xxxxxxx
+        # BY: unknown@unknown
+
+        #number of species
+        self.nmols=1425
+        #number of unique species
+        self.nmolsu=974
+        #number of dust species
+        self.nmols_dust=902
+        #number of reactions (nlayer*dust+gas)
+        self.nrea=9687
+        #number of unique reactions (dust+gas)
+        #number of dust-phase reactions
+        self.nreadust=2231
+        #number of gas-phase reactions
+        self.nreagas=self.nrea-self.nreadust
+
+        #monolayer thickness of each layer in model:
+        self.layerThickness=4
+        #idx for mantle and surface species:
+        self.surface_start=521
+        self.surface_end=971
+        self.mantle_start=975
+        self.mantle_end=1425
+        #do swapping?
+        logical,parameter::doSwap=.false.
+        self. CO_desorption_idx=1585
+
+        # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+        ##END_ARRAYSIZE
+
+        ##BEGIN_SPECIESNAMES
+        # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+        # NOTE: This block is auto-generated
+        # WHEN: 2025-04-24 08:51:42
+        # CHANGESET: xxxxxxx
+        # BY: unknown@unknown
+
+        self.speciesNames = ("GRAIN0_gas        ",
+        "GRAIN-_gas        ",
+        "E_gas             ",
+        "H_gas             ",
+        "H+_gas            ",
+        "H-_gas            ",
+        "H2_gas            ",
+        "H2+_gas           ",
+        "He_gas            ",
+        "He+_gas           ",
+        "O_gas             ",
+        "O+_gas            ",
+        "O-_gas            ",
+        "O2_gas            ",
+        "O2+_gas           ",
+        "O3_gas            ",
+        "OH_gas            ",
+        "OH+_gas           ",
+        "OH-_gas           ",
+        "H2O_gas           ",
+        "H2O+_gas          ",
+        "HO2+_gas          ",
+        "HOOH_gas          ",
+        "H3+_gas           ",
+        "H3O+_gas          ",
+        "F_gas             ",
+        "F+_gas            ",
+        "Cl_gas            ",
+        "Cl+_gas           ",
+        "CF+_gas           ",
+        "C_gas             ",
+        "C+_gas            ",
+        "C-_gas            ",
+        "C2_gas            ",
+        "C2+_gas           ",
+        "C2N+_gas          ",
+        "CO_gas            ",
+        "CO+_gas           ",
+        "CO2_gas           ",
+        "CO2+_gas          ",
+        "N_gas             ",
+        "N+_gas            ",
+        "N2_gas            ",
+        "N2+_gas           ",
+        "N2H+_gas          ",
+        "HCO_gas           ",
+        "HCO+_gas          ",
+        "H2CO_gas          ",
+        "CH2OH_gas         ",
+        "CH3O_gas          ",
+        "CH3OH_gas         ",
+        "CH_gas            ",
+        "CH2_gas           ",
+        "CH3_gas           ",
+        "CH4_gas           ",
+        "CH+_gas           ",
+        "CH2+_gas          ",
+        "CH3+_gas          ",
+        "CH4+_gas          ",
+        "CH5+_gas          ",
+        "HCOOH_gas         ",
+        "HOCO_gas          ",
+        "NH_gas            ",
+        "NH+_gas           ",
+        "NH2_gas           ",
+        "NH2+_gas          ",
+        "NH3_gas           ",
+        "NH3+_gas          ",
+        "NH4+_gas          ",
+        "Fe_gas            ",
+        "Fe+_gas           ",
+        "S_gas             ",
+        "S+_gas            ",
+        "S-_gas            ",
+        "C10_gas           ",
+        "C10+_gas          ",
+        "C10-_gas          ",
+        "C10H_gas          ",
+        "C10H+_gas         ",
+        "C10H-_gas         ",
+        "C10H2_gas         ",
+        "C10H2+_gas        ",
+        "C10H3+_gas        ",
+        "C10N_gas          ",
+        "C10N+_gas         ",
+        "C11_gas           ",
+        "C11+_gas          ",
+        "C2H+_gas          ",
+        "C2H2_gas          ",
+        "C2H2+_gas         ",
+        "C2H3_gas          ",
+        "C2H3+_gas         ",
+        "C2H4_gas          ",
+        "C2H4+_gas         ",
+        "C2H4O+_gas        ",
+        "C2H5_gas          ",
+        "C2H5+_gas         ",
+        "C2H5OH+_gas       ",
+        "C2H5OH2+_gas      ",
+        "C2H6_gas          ",
+        "C2H6+_gas         ",
+        "C2H6CO+_gas       ",
+        "C2H7+_gas         ",
+        "C2HO+_gas         ",
+        "C2N2+_gas         ",
+        "C2O+_gas          ",
+        "C2S+_gas          ",
+        "C3_gas            ",
+        "C3+_gas           ",
+        "C3-_gas           ",
+        "C3H+_gas          ",
+        "C3H3N+_gas        ",
+        "C3H3NH+_gas       ",
+        "C3H4_gas          ",
+        "C3H4+_gas         ",
+        "C3H5+_gas         ",
+        "C3H6OH+_gas       ",
+        "C3N_gas           ",
+        "C3N+_gas          ",
+        "C3N-_gas          ",
+        "C3O_gas           ",
+        "C3O+_gas          ",
+        "C3S_gas           ",
+        "C3S+_gas          ",
+        "C4_gas            ",
+        "C4+_gas           ",
+        "C4-_gas           ",
+        "C4H_gas           ",
+        "C4H+_gas          ",
+        "C4H-_gas          ",
+        "C4H2_gas          ",
+        "C4H2+_gas         ",
+        "C4H3_gas          ",
+        "C4H3+_gas         ",
+        "C4H4+_gas         ",
+        "C4H5+_gas         ",
+        "C4H7+_gas         ",
+        "C4N_gas           ",
+        "C4N+_gas          ",
+        "C4S_gas           ",
+        "C4S+_gas          ",
+        "C5_gas            ",
+        "C5+_gas           ",
+        "C5-_gas           ",
+        "C5H_gas           ",
+        "C5H+_gas          ",
+        "C5H-_gas          ",
+        "C5H2_gas          ",
+        "C5H2+_gas         ",
+        "C5H3_gas          ",
+        "C5H3+_gas         ",
+        "C5H3N+_gas        ",
+        "C5H4_gas          ",
+        "C5H4+_gas         ",
+        "C5H4N+_gas        ",
+        "C5H5+_gas         ",
+        "C5N_gas           ",
+        "C5N+_gas          ",
+        "C5O_gas           ",
+        "C6_gas            ",
+        "C6+_gas           ",
+        "C6-_gas           ",
+        "C6H_gas           ",
+        "C6H+_gas          ",
+        "C6H-_gas          ",
+        "C6H2_gas          ",
+        "C6H2+_gas         ",
+        "C6H3_gas          ",
+        "C6H3+_gas         ",
+        "C6H4_gas          ",
+        "C6H4+_gas         ",
+        "C6H5+_gas         ",
+        "C6H6_gas          ",
+        "C6H7+_gas         ",
+        "C6N_gas           ",
+        "C6N+_gas          ",
+        "C7_gas            ",
+        "C7+_gas           ",
+        "C7-_gas           ",
+        "C7H_gas           ",
+        "C7H+_gas          ",
+        "C7H-_gas          ",
+        "C7H2_gas          ",
+        "C7H2+_gas         ",
+        "C7H2N+_gas        ",
+        "C7H3_gas          ",
+        "C7H3+_gas         ",
+        "C7H4_gas          ",
+        "C7H4+_gas         ",
+        "C7H5+_gas         ",
+        "C7N_gas           ",
+        "C7N+_gas          ",
+        "C7O_gas           ",
+        "C8_gas            ",
+        "C8+_gas           ",
+        "C8-_gas           ",
+        "C8H_gas           ",
+        "C8H+_gas          ",
+        "C8H-_gas          ",
+        "C8H2_gas          ",
+        "C8H2+_gas         ",
+        "C8H3_gas          ",
+        "C8H3+_gas         ",
+        "C8H4_gas          ",
+        "C8H4+_gas         ",
+        "C8H4N+_gas        ",
+        "C8H5+_gas         ",
+        "C8N_gas           ",
+        "C8N+_gas          ",
+        "C9_gas            ",
+        "C9+_gas           ",
+        "C9-_gas           ",
+        "C9H_gas           ",
+        "C9H+_gas          ",
+        "C9H-_gas          ",
+        "C9H2_gas          ",
+        "C9H2+_gas         ",
+        "C9H2N+_gas        ",
+        "C9H3_gas          ",
+        "C9H3+_gas         ",
+        "C9H3N+_gas        ",
+        "C9H4_gas          ",
+        "C9H4+_gas         ",
+        "C9H5+_gas         ",
+        "C9HN+_gas         ",
+        "C9N_gas           ",
+        "C9N+_gas          ",
+        "C9O_gas           ",
+        "CCH_gas           ",
+        "CCN_gas           ",
+        "CCO_gas           ",
+        "CCP_gas           ",
+        "CCP+_gas          ",
+        "CCS_gas           ",
+        "CH2CCH_gas        ",
+        "CH2CHC2H_gas      ",
+        "CH2CHCHCH2_gas    ",
+        "CH2CHCN_gas       ",
+        "CH2CN+_gas        ",
+        "CH2NH_gas         ",
+        "CH2NH2_gas        ",
+        "CH2NH2+_gas       ",
+        "CH3C3N_gas        ",
+        "CH3C4H_gas        ",
+        "CH3C5N_gas        ",
+        "CH3C6H_gas        ",
+        "CH3C7N_gas        ",
+        "CH3CCH_gas        ",
+        "CH3CH2OH_gas      ",
+        "CH3CHCH2_gas      ",
+        "CH3CHO_gas        ",
+        "CH3CHOH+_gas      ",
+        "CH3CN_gas         ",
+        "CH3CN+_gas        ",
+        "CH3CNH+_gas       ",
+        "CH3CO+_gas        ",
+        "CH3COCH3_gas      ",
+        "CH3NH2_gas        ",
+        "CH3NH2+_gas       ",
+        "CH3NH3+_gas       ",
+        "CH3O2+_gas        ",
+        "CH3OCH2_gas       ",
+        "CH3OCH3_gas       ",
+        "CH3OCH3+_gas      ",
+        "CH3OCH4+_gas      ",
+        "CH3OH+_gas        ",
+        "CH3OH2+_gas       ",
+        "CN_gas            ",
+        "CN+_gas           ",
+        "CN-_gas           ",
+        "CNC+_gas          ",
+        "COOCH4+_gas       ",
+        "CS_gas            ",
+        "CS+_gas           ",
+        "HS_gas            ",
+        "HS+_gas           ",
+        "FeH_gas           ",
+        "H2C10N+_gas       ",
+        "H2C3O+_gas        ",
+        "H2C4N+_gas        ",
+        "H2C5N+_gas        ",
+        "H2C6N+_gas        ",
+        "H2C8N+_gas        ",
+        "H2CCN_gas         ",
+        "H2CCO_gas         ",
+        "H2CCO+_gas        ",
+        "H2CN_gas          ",
+        "H2CN+_gas         ",
+        "H2CO+_gas         ",
+        "H2COH+_gas        ",
+        "H2CS_gas          ",
+        "H2CS+_gas         ",
+        "H2NC+_gas         ",
+        "H2NO+_gas         ",
+        "H2S_gas           ",
+        "H2S+_gas          ",
+        "HDS_gas           ",
+        "HDS+_gas          ",
+        "H2S2+_gas         ",
+        "HDS2+_gas         ",
+        "D2S2+_gas         ",
+        "H3C3O+_gas        ",
+        "H3C4N+_gas        ",
+        "H3C4NH+_gas       ",
+        "H3C6NH+_gas       ",
+        "H3C7N+_gas        ",
+        "H3CS+_gas         ",
+        "H3S+_gas          ",
+        "H3S2+_gas         ",
+        "H5C2O2+_gas       ",
+        "HC10N+_gas        ",
+        "HC2N_gas          ",
+        "HC2N+_gas         ",
+        "HC2NCH+_gas       ",
+        "HC2O_gas          ",
+        "HC2S+_gas         ",
+        "HC3N_gas          ",
+        "HC3N+_gas         ",
+        "HC3NH+_gas        ",
+        "HC3ND+_gas        ",
+        "HC3O+_gas         ",
+        "HC3S+_gas         ",
+        "HC4N_gas          ",
+        "HC4N+_gas         ",
+        "HC4O+_gas         ",
+        "HC4S+_gas         ",
+        "HC5N_gas          ",
+        "HC5N+_gas         ",
+        "HC5O+_gas         ",
+        "HC6N_gas          ",
+        "HC6N+_gas         ",
+        "HC7N_gas          ",
+        "HC7N+_gas         ",
+        "HC7O+_gas         ",
+        "HC8N_gas          ",
+        "HC8N+_gas         ",
+        "HC9N_gas          ",
+        "HC9O+_gas         ",
+        "HCCNC_gas         ",
+        "HCN_gas           ",
+        "HCN+_gas          ",
+        "HCNCC_gas         ",
+        "HCNH+_gas         ",
+        "HCOOCH3_gas       ",
+        "HCOOH+_gas        ",
+        "HCS_gas           ",
+        "HCS+_gas          ",
+        "HN2O+_gas         ",
+        "HNC_gas           ",
+        "HNC+_gas          ",
+        "HNCCC_gas         ",
+        "HNCO_gas          ",
+        "HNCO+_gas         ",
+        "HNO_gas           ",
+        "HNO+_gas          ",
+        "HNS+_gas          ",
+        "HOC+_gas          ",
+        "HOCO+_gas         ",
+        "HOCS+_gas         ",
+        "HS2+_gas          ",
+        "HSO+_gas          ",
+        "HSO2+_gas         ",
+        "HSS_gas           ",
+        "HSSH_gas          ",
+        "N2O_gas           ",
+        "NC4N_gas          ",
+        "NC6N_gas          ",
+        "NC8N_gas          ",
+        "NCO+_gas          ",
+        "NH2CH2O+_gas      ",
+        "NH2CHO_gas        ",
+        "NH2CN_gas         ",
+        "NH2CND+_gas       ",
+        "NH2CNH+_gas       ",
+        "NO_gas            ",
+        "NO+_gas           ",
+        "NO2_gas           ",
+        "NO2+_gas          ",
+        "NS_gas            ",
+        "NS+_gas           ",
+        "OCN_gas           ",
+        "OCS_gas           ",
+        "OCS+_gas          ",
+        "S2_gas            ",
+        "S2+_gas           ",
+        "SO_gas            ",
+        "SO+_gas           ",
+        "SO2_gas           ",
+        "SO2+_gas          ",
+        "CH3OCHO_gas       ",
+        "Si_gas            ",
+        "Si+_gas           ",
+        "SiO_gas           ",
+        "SiO+_gas          ",
+        "SiO2_gas          ",
+        "SiS_gas           ",
+        "SiS+_gas          ",
+        "SiN_gas           ",
+        "SiN+_gas          ",
+        "SiC_gas           ",
+        "SiC+_gas          ",
+        "SiC2_gas          ",
+        "SiC2+_gas         ",
+        "SiH_gas           ",
+        "SiH2_gas          ",
+        "SiH2+_gas         ",
+        "SiH3_gas          ",
+        "SiH4_gas          ",
+        "P_gas             ",
+        "P+_gas            ",
+        "PH_gas            ",
+        "PH+_gas           ",
+        "PO_gas            ",
+        "PO+_gas           ",
+        "PH2_gas           ",
+        "PH2+_gas          ",
+        "C3P_gas           ",
+        "C4P_gas           ",
+        "C4P+_gas          ",
+        "CH2PH_gas         ",
+        "CH2Si+_gas        ",
+        "CHSi+_gas         ",
+        "CP_gas            ",
+        "CP+_gas           ",
+        "H2CSiCH_gas       ",
+        "H2F+_gas          ",
+        "H2PO+_gas         ",
+        "H2SiO_gas         ",
+        "H2SiO+_gas        ",
+        "H3SiO+_gas        ",
+        "HCCP_gas          ",
+        "HCCSi_gas         ",
+        "HCP_gas           ",
+        "HCP+_gas          ",
+        "HCSi_gas          ",
+        "HF_gas            ",
+        "HF+_gas           ",
+        "HNSi_gas          ",
+        "HNSi+_gas         ",
+        "HPN+_gas          ",
+        "HPO_gas           ",
+        "HPO+_gas          ",
+        "HSiNH+_gas        ",
+        "HSiO+_gas         ",
+        "HSiO2+_gas        ",
+        "HSiS+_gas         ",
+        "HeH+_gas          ",
+        "PC2H+_gas         ",
+        "PC2H2+_gas        ",
+        "PC2H3+_gas        ",
+        "PC2H4+_gas        ",
+        "PC3H+_gas         ",
+        "PC4H+_gas         ",
+        "PC4H2+_gas        ",
+        "PCH2+_gas         ",
+        "PCH3+_gas         ",
+        "PCH4+_gas         ",
+        "PH3+_gas          ",
+        "PN_gas            ",
+        "PN+_gas           ",
+        "PNH2+_gas         ",
+        "PNH3+_gas         ",
+        "SiC2CH3_gas       ",
+        "SiC2H+_gas        ",
+        "SiC2H2+_gas       ",
+        "SiC2H3+_gas       ",
+        "SiC3D_gas         ",
+        "SiC3H_gas         ",
+        "SiC3H+_gas        ",
+        "SiC3H2+_gas       ",
+        "SiC3H5_gas        ",
+        "SiC4_gas          ",
+        "SiC4+_gas         ",
+        "SiC4H_gas         ",
+        "SiC4H+_gas        ",
+        "SiC6H_gas         ",
+        "SiC8H_gas         ",
+        "SiCH2_gas         ",
+        "SiCH3_gas         ",
+        "SiCH3+_gas        ",
+        "SiCH4+_gas        ",
+        "SiF+_gas          ",
+        "SiH+_gas          ",
+        "SiH3+_gas         ",
+        "SiH4+_gas         ",
+        "SiH5+_gas         ",
+        "SiNC_gas          ",
+        "SiNC+_gas         ",
+        "SiNCH+_gas        ",
+        "c_HCCHSi_gas      ",
+        "c_SiC2_gas        ",
+        "l_SiC3_gas        ",
+        "l_SiC3+_gas       ",
+        "l_C3H_gas         ",
+        "c_C3H_gas         ",
+        "l_C3H2_gas        ",
+        "c_C3H2_gas        ",
+        "l_C3H2+_gas       ",
+        "c_C3H2+_gas       ",
+        "l_C3H3+_gas       ",
+        "c_C3H3+_gas       ",
+        "Mg_gas            ",
+        "Mg+_gas           ",
+        "MgH_gas           ",
+        "MgH2_gas          ",
+        "HCl_gas           ",
+        "HCl+_gas          ",
+        "H2Cl_gas          ",
+        "H2Cl+_gas         ",
+        "CCl_gas           ",
+        "CCl+_gas          ",
+        "ClO_gas           ",
+        "ClO+_gas          ",
+        "H2CCl+_gas        ",
+        "Na_gas            ",
+        "Na+_gas           ",
+        "NaH_gas           ",
+        "NaOH_gas          ",
+        "NaH2+_gas         ",
+        "NaH2O+_gas        ",
+        "H_surface         ",
+        "D_surface         ",
+        "H2_surface        ",
+        "D2_surface        ",
+        "HD_surface        ",
+        "He_surface        ",
+        "O_surface         ",
+        "O2_surface        ",
+        "O3_surface        ",
+        "OH_surface        ",
+        "OD_surface        ",
+        "H2O_surface       ",
+        "HDO_surface       ",
+        "D2O_surface       ",
+        "O2H_surface       ",
+        "O2D_surface       ",
+        "HOOH_surface      ",
+        "HOOD_surface      ",
+        "DOOD_surface      ",
+        "Fe_surface        ",
+        "FeH_surface       ",
+        "N_surface         ",
+        "S_surface         ",
+        "C_surface         ",
+        "C2_surface        ",
+        "CO_surface        ",
+        "HCO_surface       ",
+        "DCO_surface       ",
+        "H2CO_surface      ",
+        "HDCO_surface      ",
+        "D2CO_surface      ",
+        "CH2OH_surface     ",
+        "CD2OD_surface     ",
+        "CH2OD_surface     ",
+        "CHDOH_surface     ",
+        "CHDOD_surface     ",
+        "CD2OH_surface     ",
+        "CH3O_surface      ",
+        "CHD2O_surface     ",
+        "CH2DO_surface     ",
+        "CD3O_surface      ",
+        "CH3OH_surface     ",
+        "CH3OD_surface     ",
+        "CHD2OH_surface    ",
+        "CHD2OD_surface    ",
+        "CH2DOH_surface    ",
+        "CH2DOD_surface    ",
+        "CD3OD_surface     ",
+        "CD3OH_surface     ",
+        "CH_surface        ",
+        "CD_surface        ",
+        "CH2_surface       ",
+        "CHD_surface       ",
+        "CD2_surface       ",
+        "CH3_surface       ",
+        "CH2D_surface      ",
+        "CHD2_surface      ",
+        "CD3_surface       ",
+        "CH4_surface       ",
+        "CH3D_surface      ",
+        "CH2D2_surface     ",
+        "CHD3_surface      ",
+        "CD4_surface       ",
+        "CO2_surface       ",
+        "HCOOH_surface     ",
+        "HCOOD_surface     ",
+        "DCOOH_surface     ",
+        "DCOOD_surface     ",
+        "HOCO_surface      ",
+        "DOCO_surface      ",
+        "NH_surface        ",
+        "ND_surface        ",
+        "NH2_surface       ",
+        "NHD_surface       ",
+        "ND2_surface       ",
+        "NH3_surface       ",
+        "NH2D_surface      ",
+        "NHD2_surface      ",
+        "ND3_surface       ",
+        "C10_surface       ",
+        "C10H_surface      ",
+        "C10H2_surface     ",
+        "C10N_surface      ",
+        "C11_surface       ",
+        "C2H2_surface      ",
+        "C2HD_surface      ",
+        "C2D2_surface      ",
+        "C2H3_surface      ",
+        "C2H2D_surface     ",
+        "C2HD2_surface     ",
+        "C2D3_surface      ",
+        "C2H4_surface      ",
+        "C2H3D_surface     ",
+        "C2H2D2_surface    ",
+        "C2HD3_surface     ",
+        "C2D4_surface      ",
+        "C2H5_surface      ",
+        "C2H6_surface      ",
+        "C3_surface        ",
+        "C3N_surface       ",
+        "C3O_surface       ",
+        "C3S_surface       ",
+        "C4_surface        ",
+        "C4H_surface       ",
+        "C4D_surface       ",
+        "C4H2_surface      ",
+        "C4HD_surface      ",
+        "C4D2_surface      ",
+        "C4H3_surface      ",
+        "C4N_surface       ",
+        "C4S_surface       ",
+        "C5_surface        ",
+        "C5H_surface       ",
+        "C5D_surface       ",
+        "C5H2_surface      ",
+        "C5H3_surface      ",
+        "C5H4_surface      ",
+        "C5N_surface       ",
+        "C5O_surface       ",
+        "C6_surface        ",
+        "C6H_surface       ",
+        "C6H2_surface      ",
+        "C6H3_surface      ",
+        "C6H4_surface      ",
+        "C6H6_surface      ",
+        "C6N_surface       ",
+        "C7_surface        ",
+        "C7H_surface       ",
+        "C7H2_surface      ",
+        "C7H3_surface      ",
+        "C7H4_surface      ",
+        "C7N_surface       ",
+        "C7O_surface       ",
+        "C8_surface        ",
+        "C8H_surface       ",
+        "C8H2_surface      ",
+        "C8H3_surface      ",
+        "C8H4_surface      ",
+        "C8N_surface       ",
+        "C9_surface        ",
+        "C9H_surface       ",
+        "C9H2_surface      ",
+        "C9H3_surface      ",
+        "C9H4_surface      ",
+        "C9N_surface       ",
+        "C9O_surface       ",
+        "CCH_surface       ",
+        "CCD_surface       ",
+        "CCN_surface       ",
+        "CCO_surface       ",
+        "CCS_surface       ",
+        "CD3CN_surface     ",
+        "CH2CCH_surface    ",
+        "CH2CCD_surface    ",
+        "CHDCCH_surface    ",
+        "CHDCCD_surface    ",
+        "CD2CCH_surface    ",
+        "CD2CCD_surface    ",
+        "CH2CHC2H_surface  ",
+        "CH2CHCHCH2_surface",
+        "CH2CHCN_surface   ",
+        "CH2NH_surface     ",
+        "CHDNH_surface     ",
+        "CHDND_surface     ",
+        "CH2ND_surface     ",
+        "CD2NH_surface     ",
+        "CD2ND_surface     ",
+        "CH2NH2_surface    ",
+        "CH2NHD_surface    ",
+        "CHDNH2_surface    ",
+        "CHDNHD_surface    ",
+        "CHDND2_surface    ",
+        "CH2ND2_surface    ",
+        "CD2NH2_surface    ",
+        "CD2NHD_surface    ",
+        "CD2ND2_surface    ",
+        "CH3C3N_surface    ",
+        "CH3C4H_surface    ",
+        "CH3C5N_surface    ",
+        "CH3C6H_surface    ",
+        "CH3C7N_surface    ",
+        "CH3CCH_surface    ",
+        "CH3CH2OH_surface  ",
+        "CH3CHCH2_surface  ",
+        "CH3CHO_surface    ",
+        "CH3CN_surface     ",
+        "CH2DCN_surface    ",
+        "CHD2CN_surface    ",
+        "CH3COCH3_surface  ",
+        "CH3NH2_surface    ",
+        "CH3OCH2_surface   ",
+        "CH3OCH3_surface   ",
+        "CN_surface        ",
+        "CS_surface        ",
+        "H2CCN_surface     ",
+        "HDCCN_surface     ",
+        "D2CCN_surface     ",
+        "H2CCO_surface     ",
+        "HDCCO_surface     ",
+        "D2CCO_surface     ",
+        "H2CN_surface      ",
+        "HDCN_surface      ",
+        "D2CN_surface      ",
+        "H2CS_surface      ",
+        "HDCS_surface      ",
+        "D2CS_surface      ",
+        "H2S_surface       ",
+        "HDS_surface       ",
+        "D2S_surface       ",
+        "HC2O_surface      ",
+        "DC2O_surface      ",
+        "HC3N_surface      ",
+        "DC3N_surface      ",
+        "HC4N_surface      ",
+        "DC4N_surface      ",
+        "HC5N_surface      ",
+        "HC6N_surface      ",
+        "HC7N_surface      ",
+        "HC8N_surface      ",
+        "HC9N_surface      ",
+        "HCCNC_surface     ",
+        "DCCNC_surface     ",
+        "HCN_surface       ",
+        "DCN_surface       ",
+        "HCNCC_surface     ",
+        "DCNCC_surface     ",
+        "HCOOCH3_surface   ",
+        "HCS_surface       ",
+        "DCS_surface       ",
+        "HNC_surface       ",
+        "DNC_surface       ",
+        "HNCCC_surface     ",
+        "DNCCC_surface     ",
+        "HNCO_surface      ",
+        "DNCO_surface      ",
+        "HNO_surface       ",
+        "DNO_surface       ",
+        "HS_surface        ",
+        "DS_surface        ",
+        "N2_surface        ",
+        "N2O_surface       ",
+        "NC4N_surface      ",
+        "NC6N_surface      ",
+        "NC8N_surface      ",
+        "NH2CHO_surface    ",
+        "NH2CDO_surface    ",
+        "NHDCHO_surface    ",
+        "NHDCDO_surface    ",
+        "ND2CHO_surface    ",
+        "ND2CDO_surface    ",
+        "NH2CN_surface     ",
+        "NHDCN_surface     ",
+        "ND2CN_surface     ",
+        "HSO_surface       ",
+        "DSO_surface       ",
+        "HSS_surface       ",
+        "DSS_surface       ",
+        "HSSH_surface      ",
+        "HSSD_surface      ",
+        "DSSH_surface      ",
+        "DSSD_surface      ",
+        "NO_surface        ",
+        "NO2_surface       ",
+        "NS_surface        ",
+        "OCN_surface       ",
+        "OCS_surface       ",
+        "S2_surface        ",
+        "SO_surface        ",
+        "SO2_surface       ",
+        "CH3OCHO_surface   ",
+        "Si_surface        ",
+        "SiS_surface       ",
+        "SiN_surface       ",
+        "SiC_surface       ",
+        "SiH_surface       ",
+        "SiH2_surface      ",
+        "SiH3_surface      ",
+        "SiH4_surface      ",
+        "SiC2CH3_surface   ",
+        "SiC3H_surface     ",
+        "SiC3H5_surface    ",
+        "SiC4_surface      ",
+        "SiC4H_surface     ",
+        "SiC6H_surface     ",
+        "SiC8H_surface     ",
+        "c_HCCHSi_surface  ",
+        "c_SiC2_surface    ",
+        "l_C3H_surface     ",
+        "l_C3D_surface     ",
+        "c_C3H_surface     ",
+        "c_C3D_surface     ",
+        "l_SiC3_surface    ",
+        "l_C3H2_surface    ",
+        "l_C3HD_surface    ",
+        "l_C3D2_surface    ",
+        "c_C3H2_surface    ",
+        "c_C3HD_surface    ",
+        "c_C3D2_surface    ",
+        "Mg_surface        ",
+        "MgH_surface       ",
+        "MgH2_surface      ",
+        "Na_surface        ",
+        "NaH_surface       ",
+        "F_surface         ",
+        "HF_surface        ",
+        "DF_surface        ",
+        "MgD_surface       ",
+        "MgHD_surface      ",
+        "MgD2_surface      ",
+        "NaD_surface       ",
+        "SiD_surface       ",
+        "Cl_surface        ",
+        "HCl_surface       ",
+        "DCl_surface       ",
+        "H2Cl_surface      ",
+        "HDCl_surface      ",
+        "D2Cl_surface      ",
+        "CCl_surface       ",
+        "ClO_surface       ",
+        "C3H3_surface      ",
+        "C3H2D_surface     ",
+        "C3HD2_surface     ",
+        "C3D3_surface      ",
+        "C3H4_surface      ",
+        "C3H3D_surface     ",
+        "C3H2D2_surface    ",
+        "HCCN_surface      ",
+        "DCCN_surface      ",
+        "C2H2N_surface     ",
+        "C2H5OH_surface    ",
+        "C2H3D3_surface    ",
+        "C2H5D_surface     ",
+        "C2H4D2_surface    ",
+        "C2H3N_surface     ",
+        "C2H4O_surface     ",
+        "CH2DCHO_surface   ",
+        "CH3CDO_surface    ",
+        "CD3CHO_surface    ",
+        "CHD2CDO_surface   ",
+        "CHD2CHO_surface   ",
+        "CH2DCDO_surface   ",
+        "C2H4D_surface     ",
+        "C2H2D3_surface    ",
+        "C2H3D2_surface    ",
+        "C3H3N_surface     ",
+        "H4C3N_surface     ",
+        "C3D3N_surface     ",
+        "HD3C3N_surface    ",
+        "C3H2DN_surface    ",
+        "H3DC3N_surface    ",
+        "C3HD2N_surface    ",
+        "H2D2C3N_surface   ",
+        "HC3O_surface      ",
+        "DC3O_surface      ",
+        "C4H4_surface      ",
+        "CH5N_surface      ",
+        "CH3NH_surface     ",
+        "FeD_surface       ",
+        "H2C3N_surface     ",
+        "H2C5N_surface     ",
+        "H3C5N_surface     ",
+        "H2C7N_surface     ",
+        "H3C7N_surface     ",
+        "H2C9N_surface     ",
+        "H3C9N_surface     ",
+        "H5C3N_surface     ",
+        "C2H2O_surface     ",
+        "C2HDO_surface     ",
+        "C2D2O_surface     ",
+        "HDC3N_surface     ",
+        "D2C3N_surface     ",
+        "H2C3O_surface     ",
+        "HDC3O_surface     ",
+        "D2C3O_surface     ",
+        "C2HDN_surface     ",
+        "C2D2N_surface     ",
+        "CH3N_surface      ",
+        "N2H2_surface      ",
+        "N2HD_surface      ",
+        "N2D2_surface      ",
+        "NH2OH_surface     ",
+        "NH2OD_surface     ",
+        "N2H_surface       ",
+        "N2D_surface       ",
+        "CNH2_surface      ",
+        "CHNH2_surface     ",
+        "HON_surface       ",
+        "DON_surface       ",
+        "NHNO_surface      ",
+        "CH2DN_surface     ",
+        "CHD2N_surface     ",
+        "CD3N_surface      ",
+        "NH2NO_surface     ",
+        "CH3CO_surface     ",
+        "CH2DOCH3_surface  ",
+        "CHD2OCH3_surface  ",
+        "CH2DOCH2D_surface ",
+        "CD3OCH3_surface   ",
+        "CHD2OCH2D_surface ",
+        "DCOOCH3_surface   ",
+        "HCOOCH2D_surface  ",
+        "DCOOCH2D_surface  ",
+        "HCOOCHD2_surface  ",
+        "DCOOCHD2_surface  ",
+        "HCOOCD3_surface   ",
+        "DCOOCD3_surface   ",
+        "NH2CO_surface     ",
+        "NHDCO_surface     ",
+        "ND2CO_surface     ",
+        "CH2DOCHO_surface  ",
+        "CH3OCDO_surface   ",
+        "CHD2OCHO_surface  ",
+        "CH2DOCDO_surface  ",
+        "CD3OCHO_surface   ",
+        "CHD2OCDO_surface  ",
+        "CHDOCDO_surface   ",
+        "CHDOCHDO_surface  ",
+        "CH3OCHD_surface   ",
+        "CH2DOCH2_surface  ",
+        "CH2DOCHD_surface  ",
+        "CHD2OCH2_surface  ",
+        "CH3OCD2_surface   ",
+        "CH2DOCD2_surface  ",
+        "CH3OCHD2_surface  ",
+        "CH3OCH2D_surface  ",
+        "CH2DCO_surface    ",
+        "CH3NHD_surface    ",
+        "CH2DNH2_surface   ",
+        "P_surface         ",
+        "PO_surface        ",
+        "PH_surface        ",
+        "PD_surface        ",
+        "PH2_surface       ",
+        "PHD_surface       ",
+        "PD2_surface       ",
+        "PN_surface        ",
+        "CP_surface        ",
+        "CCP_surface       ",
+        "C3P_surface       ",
+        "C4P_surface       ",
+        "CH2PH_surface     ",
+        "CHD2PH_surface    ",
+        "CH2PD_surface     ",
+        "CHDPD_surface     ",
+        "CD2P2_surface     ",
+        "HCP_surface       ",
+        "DCP_surface       ",
+        "HCCP_surface      ",
+        "DCCP_surface      ",
+        "HPO_surface       ",
+        "DPO_surface       ",
+        "surface_mask      ",
+        "mantle_mask       ",
+        "dummy             ")
+        # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+        ##END_SPECIESNAMES
+
+        ##BEGIN_IDXLIST
+        # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+        # NOTE: This block is auto-generated
+        # WHEN: 2025-04-24 08:51:42
+        # CHANGESET: xxxxxxx
+        # BY: unknown@unknown
+
+        self.idx_GRAIN0_gas=1
+        self.idx_GRAINk_gas=2
+        self.idx_E_gas=3
+        self.idx_H_gas=4
+        self.idx_Hj_gas=5
+        self.idx_Hk_gas=6
+        self.idx_H2_gas=7
+        self.idx_H2j_gas=8
+        self.idx_He_gas=9
+        self.idx_Hej_gas=10
+        self.idx_O_gas=11
+        self.idx_Oj_gas=12
+        self.idx_Ok_gas=13
+        self.idx_O2_gas=14
+        self.idx_O2j_gas=15
+        self.idx_O3_gas=16
+        self.idx_OH_gas=17
+        self.idx_OHj_gas=18
+        self.idx_OHk_gas=19
+        self.idx_H2O_gas=20
+        self.idx_H2Oj_gas=21
+        self.idx_HO2j_gas=22
+        self.idx_HOOH_gas=23
+        self.idx_H3j_gas=24
+        self.idx_H3Oj_gas=25
+        self.idx_F_gas=26
+        self.idx_Fj_gas=27
+        self.idx_Cl_gas=28
+        self.idx_Clj_gas=29
+        self.idx_CFj_gas=30
+        self.idx_C_gas=31
+        self.idx_Cj_gas=32
+        self.idx_Ck_gas=33
+        self.idx_C2_gas=34
+        self.idx_C2j_gas=35
+        self.idx_C2Nj_gas=36
+        self.idx_CO_gas=37
+        self.idx_COj_gas=38
+        self.idx_CO2_gas=39
+        self.idx_CO2j_gas=40
+        self.idx_N_gas=41
+        self.idx_Nj_gas=42
+        self.idx_N2_gas=43
+        self.idx_N2j_gas=44
+        self.idx_N2Hj_gas=45
+        self.idx_HCO_gas=46
+        self.idx_HCOj_gas=47
+        self.idx_H2CO_gas=48
+        self.idx_CH2OH_gas=49
+        self.idx_CH3O_gas=50
+        self.idx_CH3OH_gas=51
+        self.idx_CH_gas=52
+        self.idx_CH2_gas=53
+        self.idx_CH3_gas=54
+        self.idx_CH4_gas=55
+        self.idx_CHj_gas=56
+        self.idx_CH2j_gas=57
+        self.idx_CH3j_gas=58
+        self.idx_CH4j_gas=59
+        self.idx_CH5j_gas=60
+        self.idx_HCOOH_gas=61
+        self.idx_HOCO_gas=62
+        self.idx_NH_gas=63
+        self.idx_NHj_gas=64
+        self.idx_NH2_gas=65
+        self.idx_NH2j_gas=66
+        self.idx_NH3_gas=67
+        self.idx_NH3j_gas=68
+        self.idx_NH4j_gas=69
+        self.idx_Fe_gas=70
+        self.idx_Fej_gas=71
+        self.idx_S_gas=72
+        self.idx_Sj_gas=73
+        self.idx_Sk_gas=74
+        self.idx_C10_gas=75
+        self.idx_C10j_gas=76
+        self.idx_C10k_gas=77
+        self.idx_C10H_gas=78
+        self.idx_C10Hj_gas=79
+        self.idx_C10Hk_gas=80
+        self.idx_C10H2_gas=81
+        self.idx_C10H2j_gas=82
+        self.idx_C10H3j_gas=83
+        self.idx_C10N_gas=84
+        self.idx_C10Nj_gas=85
+        self.idx_C11_gas=86
+        self.idx_C11j_gas=87
+        self.idx_C2Hj_gas=88
+        self.idx_C2H2_gas=89
+        self.idx_C2H2j_gas=90
+        self.idx_C2H3_gas=91
+        self.idx_C2H3j_gas=92
+        self.idx_C2H4_gas=93
+        self.idx_C2H4j_gas=94
+        self.idx_C2H4Oj_gas=95
+        self.idx_C2H5_gas=96
+        self.idx_C2H5j_gas=97
+        self.idx_C2H5OHj_gas=98
+        self.idx_C2H5OH2j_gas=99
+        self.idx_C2H6_gas=100
+        self.idx_C2H6j_gas=101
+        self.idx_C2H6COj_gas=102
+        self.idx_C2H7j_gas=103
+        self.idx_C2HOj_gas=104
+        self.idx_C2N2j_gas=105
+        self.idx_C2Oj_gas=106
+        self.idx_C2Sj_gas=107
+        self.idx_C3_gas=108
+        self.idx_C3j_gas=109
+        self.idx_C3k_gas=110
+        self.idx_C3Hj_gas=111
+        self.idx_C3H3Nj_gas=112
+        self.idx_C3H3NHj_gas=113
+        self.idx_C3H4_gas=114
+        self.idx_C3H4j_gas=115
+        self.idx_C3H5j_gas=116
+        self.idx_C3H6OHj_gas=117
+        self.idx_C3N_gas=118
+        self.idx_C3Nj_gas=119
+        self.idx_C3Nk_gas=120
+        self.idx_C3O_gas=121
+        self.idx_C3Oj_gas=122
+        self.idx_C3S_gas=123
+        self.idx_C3Sj_gas=124
+        self.idx_C4_gas=125
+        self.idx_C4j_gas=126
+        self.idx_C4k_gas=127
+        self.idx_C4H_gas=128
+        self.idx_C4Hj_gas=129
+        self.idx_C4Hk_gas=130
+        self.idx_C4H2_gas=131
+        self.idx_C4H2j_gas=132
+        self.idx_C4H3_gas=133
+        self.idx_C4H3j_gas=134
+        self.idx_C4H4j_gas=135
+        self.idx_C4H5j_gas=136
+        self.idx_C4H7j_gas=137
+        self.idx_C4N_gas=138
+        self.idx_C4Nj_gas=139
+        self.idx_C4S_gas=140
+        self.idx_C4Sj_gas=141
+        self.idx_C5_gas=142
+        self.idx_C5j_gas=143
+        self.idx_C5k_gas=144
+        self.idx_C5H_gas=145
+        self.idx_C5Hj_gas=146
+        self.idx_C5Hk_gas=147
+        self.idx_C5H2_gas=148
+        self.idx_C5H2j_gas=149
+        self.idx_C5H3_gas=150
+        self.idx_C5H3j_gas=151
+        self.idx_C5H3Nj_gas=152
+        self.idx_C5H4_gas=153
+        self.idx_C5H4j_gas=154
+        self.idx_C5H4Nj_gas=155
+        self.idx_C5H5j_gas=156
+        self.idx_C5N_gas=157
+        self.idx_C5Nj_gas=158
+        self.idx_C5O_gas=159
+        self.idx_C6_gas=160
+        self.idx_C6j_gas=161
+        self.idx_C6k_gas=162
+        self.idx_C6H_gas=163
+        self.idx_C6Hj_gas=164
+        self.idx_C6Hk_gas=165
+        self.idx_C6H2_gas=166
+        self.idx_C6H2j_gas=167
+        self.idx_C6H3_gas=168
+        self.idx_C6H3j_gas=169
+        self.idx_C6H4_gas=170
+        self.idx_C6H4j_gas=171
+        self.idx_C6H5j_gas=172
+        self.idx_C6H6_gas=173
+        self.idx_C6H7j_gas=174
+        self.idx_C6N_gas=175
+        self.idx_C6Nj_gas=176
+        self.idx_C7_gas=177
+        self.idx_C7j_gas=178
+        self.idx_C7k_gas=179
+        self.idx_C7H_gas=180
+        self.idx_C7Hj_gas=181
+        self.idx_C7Hk_gas=182
+        self.idx_C7H2_gas=183
+        self.idx_C7H2j_gas=184
+        self.idx_C7H2Nj_gas=185
+        self.idx_C7H3_gas=186
+        self.idx_C7H3j_gas=187
+        self.idx_C7H4_gas=188
+        self.idx_C7H4j_gas=189
+        self.idx_C7H5j_gas=190
+        self.idx_C7N_gas=191
+        self.idx_C7Nj_gas=192
+        self.idx_C7O_gas=193
+        self.idx_C8_gas=194
+        self.idx_C8j_gas=195
+        self.idx_C8k_gas=196
+        self.idx_C8H_gas=197
+        self.idx_C8Hj_gas=198
+        self.idx_C8Hk_gas=199
+        self.idx_C8H2_gas=200
+        self.idx_C8H2j_gas=201
+        self.idx_C8H3_gas=202
+        self.idx_C8H3j_gas=203
+        self.idx_C8H4_gas=204
+        self.idx_C8H4j_gas=205
+        self.idx_C8H4Nj_gas=206
+        self.idx_C8H5j_gas=207
+        self.idx_C8N_gas=208
+        self.idx_C8Nj_gas=209
+        self.idx_C9_gas=210
+        self.idx_C9j_gas=211
+        self.idx_C9k_gas=212
+        self.idx_C9H_gas=213
+        self.idx_C9Hj_gas=214
+        self.idx_C9Hk_gas=215
+        self.idx_C9H2_gas=216
+        self.idx_C9H2j_gas=217
+        self.idx_C9H2Nj_gas=218
+        self.idx_C9H3_gas=219
+        self.idx_C9H3j_gas=220
+        self.idx_C9H3Nj_gas=221
+        self.idx_C9H4_gas=222
+        self.idx_C9H4j_gas=223
+        self.idx_C9H5j_gas=224
+        self.idx_C9HNj_gas=225
+        self.idx_C9N_gas=226
+        self.idx_C9Nj_gas=227
+        self.idx_C9O_gas=228
+        self.idx_CCH_gas=229
+        self.idx_CCN_gas=230
+        self.idx_CCO_gas=231
+        self.idx_CCP_gas=232
+        self.idx_CCPj_gas=233
+        self.idx_CCS_gas=234
+        self.idx_CH2CCH_gas=235
+        self.idx_CH2CHC2H_gas=236
+        self.idx_CH2CHCHCH2_gas=237
+        self.idx_CH2CHCN_gas=238
+        self.idx_CH2CNj_gas=239
+        self.idx_CH2NH_gas=240
+        self.idx_CH2NH2_gas=241
+        self.idx_CH2NH2j_gas=242
+        self.idx_CH3C3N_gas=243
+        self.idx_CH3C4H_gas=244
+        self.idx_CH3C5N_gas=245
+        self.idx_CH3C6H_gas=246
+        self.idx_CH3C7N_gas=247
+        self.idx_CH3CCH_gas=248
+        self.idx_CH3CH2OH_gas=249
+        self.idx_CH3CHCH2_gas=250
+        self.idx_CH3CHO_gas=251
+        self.idx_CH3CHOHj_gas=252
+        self.idx_CH3CN_gas=253
+        self.idx_CH3CNj_gas=254
+        self.idx_CH3CNHj_gas=255
+        self.idx_CH3COj_gas=256
+        self.idx_CH3COCH3_gas=257
+        self.idx_CH3NH2_gas=258
+        self.idx_CH3NH2j_gas=259
+        self.idx_CH3NH3j_gas=260
+        self.idx_CH3O2j_gas=261
+        self.idx_CH3OCH2_gas=262
+        self.idx_CH3OCH3_gas=263
+        self.idx_CH3OCH3j_gas=264
+        self.idx_CH3OCH4j_gas=265
+        self.idx_CH3OHj_gas=266
+        self.idx_CH3OH2j_gas=267
+        self.idx_CN_gas=268
+        self.idx_CNj_gas=269
+        self.idx_CNk_gas=270
+        self.idx_CNCj_gas=271
+        self.idx_COOCH4j_gas=272
+        self.idx_CS_gas=273
+        self.idx_CSj_gas=274
+        self.idx_HS_gas=275
+        self.idx_HSj_gas=276
+        self.idx_FeH_gas=277
+        self.idx_H2C10Nj_gas=278
+        self.idx_H2C3Oj_gas=279
+        self.idx_H2C4Nj_gas=280
+        self.idx_H2C5Nj_gas=281
+        self.idx_H2C6Nj_gas=282
+        self.idx_H2C8Nj_gas=283
+        self.idx_H2CCN_gas=284
+        self.idx_H2CCO_gas=285
+        self.idx_H2CCOj_gas=286
+        self.idx_H2CN_gas=287
+        self.idx_H2CNj_gas=288
+        self.idx_H2COj_gas=289
+        self.idx_H2COHj_gas=290
+        self.idx_H2CS_gas=291
+        self.idx_H2CSj_gas=292
+        self.idx_H2NCj_gas=293
+        self.idx_H2NOj_gas=294
+        self.idx_H2S_gas=295
+        self.idx_H2Sj_gas=296
+        self.idx_HDS_gas=297
+        self.idx_HDSj_gas=298
+        self.idx_H2S2j_gas=299
+        self.idx_HDS2j_gas=300
+        self.idx_D2S2j_gas=301
+        self.idx_H3C3Oj_gas=302
+        self.idx_H3C4Nj_gas=303
+        self.idx_H3C4NHj_gas=304
+        self.idx_H3C6NHj_gas=305
+        self.idx_H3C7Nj_gas=306
+        self.idx_H3CSj_gas=307
+        self.idx_H3Sj_gas=308
+        self.idx_H3S2j_gas=309
+        self.idx_H5C2O2j_gas=310
+        self.idx_HC10Nj_gas=311
+        self.idx_HC2N_gas=312
+        self.idx_HC2Nj_gas=313
+        self.idx_HC2NCHj_gas=314
+        self.idx_HC2O_gas=315
+        self.idx_HC2Sj_gas=316
+        self.idx_HC3N_gas=317
+        self.idx_HC3Nj_gas=318
+        self.idx_HC3NHj_gas=319
+        self.idx_HC3NDj_gas=320
+        self.idx_HC3Oj_gas=321
+        self.idx_HC3Sj_gas=322
+        self.idx_HC4N_gas=323
+        self.idx_HC4Nj_gas=324
+        self.idx_HC4Oj_gas=325
+        self.idx_HC4Sj_gas=326
+        self.idx_HC5N_gas=327
+        self.idx_HC5Nj_gas=328
+        self.idx_HC5Oj_gas=329
+        self.idx_HC6N_gas=330
+        self.idx_HC6Nj_gas=331
+        self.idx_HC7N_gas=332
+        self.idx_HC7Nj_gas=333
+        self.idx_HC7Oj_gas=334
+        self.idx_HC8N_gas=335
+        self.idx_HC8Nj_gas=336
+        self.idx_HC9N_gas=337
+        self.idx_HC9Oj_gas=338
+        self.idx_HCCNC_gas=339
+        self.idx_HCN_gas=340
+        self.idx_HCNj_gas=341
+        self.idx_HCNCC_gas=342
+        self.idx_HCNHj_gas=343
+        self.idx_HCOOCH3_gas=344
+        self.idx_HCOOHj_gas=345
+        self.idx_HCS_gas=346
+        self.idx_HCSj_gas=347
+        self.idx_HN2Oj_gas=348
+        self.idx_HNC_gas=349
+        self.idx_HNCj_gas=350
+        self.idx_HNCCC_gas=351
+        self.idx_HNCO_gas=352
+        self.idx_HNCOj_gas=353
+        self.idx_HNO_gas=354
+        self.idx_HNOj_gas=355
+        self.idx_HNSj_gas=356
+        self.idx_HOCj_gas=357
+        self.idx_HOCOj_gas=358
+        self.idx_HOCSj_gas=359
+        self.idx_HS2j_gas=360
+        self.idx_HSOj_gas=361
+        self.idx_HSO2j_gas=362
+        self.idx_HSS_gas=363
+        self.idx_HSSH_gas=364
+        self.idx_N2O_gas=365
+        self.idx_NC4N_gas=366
+        self.idx_NC6N_gas=367
+        self.idx_NC8N_gas=368
+        self.idx_NCOj_gas=369
+        self.idx_NH2CH2Oj_gas=370
+        self.idx_NH2CHO_gas=371
+        self.idx_NH2CN_gas=372
+        self.idx_NH2CNDj_gas=373
+        self.idx_NH2CNHj_gas=374
+        self.idx_NO_gas=375
+        self.idx_NOj_gas=376
+        self.idx_NO2_gas=377
+        self.idx_NO2j_gas=378
+        self.idx_NS_gas=379
+        self.idx_NSj_gas=380
+        self.idx_OCN_gas=381
+        self.idx_OCS_gas=382
+        self.idx_OCSj_gas=383
+        self.idx_S2_gas=384
+        self.idx_S2j_gas=385
+        self.idx_SO_gas=386
+        self.idx_SOj_gas=387
+        self.idx_SO2_gas=388
+        self.idx_SO2j_gas=389
+        self.idx_CH3OCHO_gas=390
+        self.idx_Si_gas=391
+        self.idx_Sij_gas=392
+        self.idx_SiO_gas=393
+        self.idx_SiOj_gas=394
+        self.idx_SiO2_gas=395
+        self.idx_SiS_gas=396
+        self.idx_SiSj_gas=397
+        self.idx_SiN_gas=398
+        self.idx_SiNj_gas=399
+        self.idx_SiC_gas=400
+        self.idx_SiCj_gas=401
+        self.idx_SiC2_gas=402
+        self.idx_SiC2j_gas=403
+        self.idx_SiH_gas=404
+        self.idx_SiH2_gas=405
+        self.idx_SiH2j_gas=406
+        self.idx_SiH3_gas=407
+        self.idx_SiH4_gas=408
+        self.idx_P_gas=409
+        self.idx_Pj_gas=410
+        self.idx_PH_gas=411
+        self.idx_PHj_gas=412
+        self.idx_PO_gas=413
+        self.idx_POj_gas=414
+        self.idx_PH2_gas=415
+        self.idx_PH2j_gas=416
+        self.idx_C3P_gas=417
+        self.idx_C4P_gas=418
+        self.idx_C4Pj_gas=419
+        self.idx_CH2PH_gas=420
+        self.idx_CH2Sij_gas=421
+        self.idx_CHSij_gas=422
+        self.idx_CP_gas=423
+        self.idx_CPj_gas=424
+        self.idx_H2CSiCH_gas=425
+        self.idx_H2Fj_gas=426
+        self.idx_H2POj_gas=427
+        self.idx_H2SiO_gas=428
+        self.idx_H2SiOj_gas=429
+        self.idx_H3SiOj_gas=430
+        self.idx_HCCP_gas=431
+        self.idx_HCCSi_gas=432
+        self.idx_HCP_gas=433
+        self.idx_HCPj_gas=434
+        self.idx_HCSi_gas=435
+        self.idx_HF_gas=436
+        self.idx_HFj_gas=437
+        self.idx_HNSi_gas=438
+        self.idx_HNSij_gas=439
+        self.idx_HPNj_gas=440
+        self.idx_HPO_gas=441
+        self.idx_HPOj_gas=442
+        self.idx_HSiNHj_gas=443
+        self.idx_HSiOj_gas=444
+        self.idx_HSiO2j_gas=445
+        self.idx_HSiSj_gas=446
+        self.idx_HeHj_gas=447
+        self.idx_PC2Hj_gas=448
+        self.idx_PC2H2j_gas=449
+        self.idx_PC2H3j_gas=450
+        self.idx_PC2H4j_gas=451
+        self.idx_PC3Hj_gas=452
+        self.idx_PC4Hj_gas=453
+        self.idx_PC4H2j_gas=454
+        self.idx_PCH2j_gas=455
+        self.idx_PCH3j_gas=456
+        self.idx_PCH4j_gas=457
+        self.idx_PH3j_gas=458
+        self.idx_PN_gas=459
+        self.idx_PNj_gas=460
+        self.idx_PNH2j_gas=461
+        self.idx_PNH3j_gas=462
+        self.idx_SiC2CH3_gas=463
+        self.idx_SiC2Hj_gas=464
+        self.idx_SiC2H2j_gas=465
+        self.idx_SiC2H3j_gas=466
+        self.idx_SiC3D_gas=467
+        self.idx_SiC3H_gas=468
+        self.idx_SiC3Hj_gas=469
+        self.idx_SiC3H2j_gas=470
+        self.idx_SiC3H5_gas=471
+        self.idx_SiC4_gas=472
+        self.idx_SiC4j_gas=473
+        self.idx_SiC4H_gas=474
+        self.idx_SiC4Hj_gas=475
+        self.idx_SiC6H_gas=476
+        self.idx_SiC8H_gas=477
+        self.idx_SiCH2_gas=478
+        self.idx_SiCH3_gas=479
+        self.idx_SiCH3j_gas=480
+        self.idx_SiCH4j_gas=481
+        self.idx_SiFj_gas=482
+        self.idx_SiHj_gas=483
+        self.idx_SiH3j_gas=484
+        self.idx_SiH4j_gas=485
+        self.idx_SiH5j_gas=486
+        self.idx_SiNC_gas=487
+        self.idx_SiNCj_gas=488
+        self.idx_SiNCHj_gas=489
+        self.idx_c_HCCHSi_gas=490
+        self.idx_c_SiC2_gas=491
+        self.idx_l_SiC3_gas=492
+        self.idx_l_SiC3j_gas=493
+        self.idx_l_C3H_gas=494
+        self.idx_c_C3H_gas=495
+        self.idx_l_C3H2_gas=496
+        self.idx_c_C3H2_gas=497
+        self.idx_l_C3H2j_gas=498
+        self.idx_c_C3H2j_gas=499
+        self.idx_l_C3H3j_gas=500
+        self.idx_c_C3H3j_gas=501
+        self.idx_Mg_gas=502
+        self.idx_Mgj_gas=503
+        self.idx_MgH_gas=504
+        self.idx_MgH2_gas=505
+        self.idx_HCl_gas=506
+        self.idx_HClj_gas=507
+        self.idx_H2Cl_gas=508
+        self.idx_H2Clj_gas=509
+        self.idx_CCl_gas=510
+        self.idx_CClj_gas=511
+        self.idx_ClO_gas=512
+        self.idx_ClOj_gas=513
+        self.idx_H2CClj_gas=514
+        self.idx_Na_gas=515
+        self.idx_Naj_gas=516
+        self.idx_NaH_gas=517
+        self.idx_NaOH_gas=518
+        self.idx_NaH2j_gas=519
+        self.idx_NaH2Oj_gas=520
+        self.idx_H_surface=521
+        self.idx_H_mantle=975
+        self.idx_D_surface=522
+        self.idx_D_mantle=976
+        self.idx_H2_surface=523
+        self.idx_H2_mantle=977
+        self.idx_D2_surface=524
+        self.idx_D2_mantle=978
+        self.idx_HD_surface=525
+        self.idx_HD_mantle=979
+        self.idx_He_surface=526
+        self.idx_He_mantle=980
+        self.idx_O_surface=527
+        self.idx_O_mantle=981
+        self.idx_O2_surface=528
+        self.idx_O2_mantle=982
+        self.idx_O3_surface=529
+        self.idx_O3_mantle=983
+        self.idx_OH_surface=530
+        self.idx_OH_mantle=984
+        self.idx_OD_surface=531
+        self.idx_OD_mantle=985
+        self.idx_H2O_surface=532
+        self.idx_H2O_mantle=986
+        self.idx_HDO_surface=533
+        self.idx_HDO_mantle=987
+        self.idx_D2O_surface=534
+        self.idx_D2O_mantle=988
+        self.idx_O2H_surface=535
+        self.idx_O2H_mantle=989
+        self.idx_O2D_surface=536
+        self.idx_O2D_mantle=990
+        self.idx_HOOH_surface=537
+        self.idx_HOOH_mantle=991
+        self.idx_HOOD_surface=538
+        self.idx_HOOD_mantle=992
+        self.idx_DOOD_surface=539
+        self.idx_DOOD_mantle=993
+        self.idx_Fe_surface=540
+        self.idx_Fe_mantle=994
+        self.idx_FeH_surface=541
+        self.idx_FeH_mantle=995
+        self.idx_N_surface=542
+        self.idx_N_mantle=996
+        self.idx_S_surface=543
+        self.idx_S_mantle=997
+        self.idx_C_surface=544
+        self.idx_C_mantle=998
+        self.idx_C2_surface=545
+        self.idx_C2_mantle=999
+        self.idx_CO_surface=546
+        self.idx_CO_mantle=1000
+        self.idx_HCO_surface=547
+        self.idx_HCO_mantle=1001
+        self.idx_DCO_surface=548
+        self.idx_DCO_mantle=1002
+        self.idx_H2CO_surface=549
+        self.idx_H2CO_mantle=1003
+        self.idx_HDCO_surface=550
+        self.idx_HDCO_mantle=1004
+        self.idx_D2CO_surface=551
+        self.idx_D2CO_mantle=1005
+        self.idx_CH2OH_surface=552
+        self.idx_CH2OH_mantle=1006
+        self.idx_CD2OD_surface=553
+        self.idx_CD2OD_mantle=1007
+        self.idx_CH2OD_surface=554
+        self.idx_CH2OD_mantle=1008
+        self.idx_CHDOH_surface=555
+        self.idx_CHDOH_mantle=1009
+        self.idx_CHDOD_surface=556
+        self.idx_CHDOD_mantle=1010
+        self.idx_CD2OH_surface=557
+        self.idx_CD2OH_mantle=1011
+        self.idx_CH3O_surface=558
+        self.idx_CH3O_mantle=1012
+        self.idx_CHD2O_surface=559
+        self.idx_CHD2O_mantle=1013
+        self.idx_CH2DO_surface=560
+        self.idx_CH2DO_mantle=1014
+        self.idx_CD3O_surface=561
+        self.idx_CD3O_mantle=1015
+        self.idx_CH3OH_surface=562
+        self.idx_CH3OH_mantle=1016
+        self.idx_CH3OD_surface=563
+        self.idx_CH3OD_mantle=1017
+        self.idx_CHD2OH_surface=564
+        self.idx_CHD2OH_mantle=1018
+        self.idx_CHD2OD_surface=565
+        self.idx_CHD2OD_mantle=1019
+        self.idx_CH2DOH_surface=566
+        self.idx_CH2DOH_mantle=1020
+        self.idx_CH2DOD_surface=567
+        self.idx_CH2DOD_mantle=1021
+        self.idx_CD3OD_surface=568
+        self.idx_CD3OD_mantle=1022
+        self.idx_CD3OH_surface=569
+        self.idx_CD3OH_mantle=1023
+        self.idx_CH_surface=570
+        self.idx_CH_mantle=1024
+        self.idx_CD_surface=571
+        self.idx_CD_mantle=1025
+        self.idx_CH2_surface=572
+        self.idx_CH2_mantle=1026
+        self.idx_CHD_surface=573
+        self.idx_CHD_mantle=1027
+        self.idx_CD2_surface=574
+        self.idx_CD2_mantle=1028
+        self.idx_CH3_surface=575
+        self.idx_CH3_mantle=1029
+        self.idx_CH2D_surface=576
+        self.idx_CH2D_mantle=1030
+        self.idx_CHD2_surface=577
+        self.idx_CHD2_mantle=1031
+        self.idx_CD3_surface=578
+        self.idx_CD3_mantle=1032
+        self.idx_CH4_surface=579
+        self.idx_CH4_mantle=1033
+        self.idx_CH3D_surface=580
+        self.idx_CH3D_mantle=1034
+        self.idx_CH2D2_surface=581
+        self.idx_CH2D2_mantle=1035
+        self.idx_CHD3_surface=582
+        self.idx_CHD3_mantle=1036
+        self.idx_CD4_surface=583
+        self.idx_CD4_mantle=1037
+        self.idx_CO2_surface=584
+        self.idx_CO2_mantle=1038
+        self.idx_HCOOH_surface=585
+        self.idx_HCOOH_mantle=1039
+        self.idx_HCOOD_surface=586
+        self.idx_HCOOD_mantle=1040
+        self.idx_DCOOH_surface=587
+        self.idx_DCOOH_mantle=1041
+        self.idx_DCOOD_surface=588
+        self.idx_DCOOD_mantle=1042
+        self.idx_HOCO_surface=589
+        self.idx_HOCO_mantle=1043
+        self.idx_DOCO_surface=590
+        self.idx_DOCO_mantle=1044
+        self.idx_NH_surface=591
+        self.idx_NH_mantle=1045
+        self.idx_ND_surface=592
+        self.idx_ND_mantle=1046
+        self.idx_NH2_surface=593
+        self.idx_NH2_mantle=1047
+        self.idx_NHD_surface=594
+        self.idx_NHD_mantle=1048
+        self.idx_ND2_surface=595
+        self.idx_ND2_mantle=1049
+        self.idx_NH3_surface=596
+        self.idx_NH3_mantle=1050
+        self.idx_NH2D_surface=597
+        self.idx_NH2D_mantle=1051
+        self.idx_NHD2_surface=598
+        self.idx_NHD2_mantle=1052
+        self.idx_ND3_surface=599
+        self.idx_ND3_mantle=1053
+        self.idx_C10_surface=600
+        self.idx_C10_mantle=1054
+        self.idx_C10H_surface=601
+        self.idx_C10H_mantle=1055
+        self.idx_C10H2_surface=602
+        self.idx_C10H2_mantle=1056
+        self.idx_C10N_surface=603
+        self.idx_C10N_mantle=1057
+        self.idx_C11_surface=604
+        self.idx_C11_mantle=1058
+        self.idx_C2H2_surface=605
+        self.idx_C2H2_mantle=1059
+        self.idx_C2HD_surface=606
+        self.idx_C2HD_mantle=1060
+        self.idx_C2D2_surface=607
+        self.idx_C2D2_mantle=1061
+        self.idx_C2H3_surface=608
+        self.idx_C2H3_mantle=1062
+        self.idx_C2H2D_surface=609
+        self.idx_C2H2D_mantle=1063
+        self.idx_C2HD2_surface=610
+        self.idx_C2HD2_mantle=1064
+        self.idx_C2D3_surface=611
+        self.idx_C2D3_mantle=1065
+        self.idx_C2H4_surface=612
+        self.idx_C2H4_mantle=1066
+        self.idx_C2H3D_surface=613
+        self.idx_C2H3D_mantle=1067
+        self.idx_C2H2D2_surface=614
+        self.idx_C2H2D2_mantle=1068
+        self.idx_C2HD3_surface=615
+        self.idx_C2HD3_mantle=1069
+        self.idx_C2D4_surface=616
+        self.idx_C2D4_mantle=1070
+        self.idx_C2H5_surface=617
+        self.idx_C2H5_mantle=1071
+        self.idx_C2H6_surface=618
+        self.idx_C2H6_mantle=1072
+        self.idx_C3_surface=619
+        self.idx_C3_mantle=1073
+        self.idx_C3N_surface=620
+        self.idx_C3N_mantle=1074
+        self.idx_C3O_surface=621
+        self.idx_C3O_mantle=1075
+        self.idx_C3S_surface=622
+        self.idx_C3S_mantle=1076
+        self.idx_C4_surface=623
+        self.idx_C4_mantle=1077
+        self.idx_C4H_surface=624
+        self.idx_C4H_mantle=1078
+        self.idx_C4D_surface=625
+        self.idx_C4D_mantle=1079
+        self.idx_C4H2_surface=626
+        self.idx_C4H2_mantle=1080
+        self.idx_C4HD_surface=627
+        self.idx_C4HD_mantle=1081
+        self.idx_C4D2_surface=628
+        self.idx_C4D2_mantle=1082
+        self.idx_C4H3_surface=629
+        self.idx_C4H3_mantle=1083
+        self.idx_C4N_surface=630
+        self.idx_C4N_mantle=1084
+        self.idx_C4S_surface=631
+        self.idx_C4S_mantle=1085
+        self.idx_C5_surface=632
+        self.idx_C5_mantle=1086
+        self.idx_C5H_surface=633
+        self.idx_C5H_mantle=1087
+        self.idx_C5D_surface=634
+        self.idx_C5D_mantle=1088
+        self.idx_C5H2_surface=635
+        self.idx_C5H2_mantle=1089
+        self.idx_C5H3_surface=636
+        self.idx_C5H3_mantle=1090
+        self.idx_C5H4_surface=637
+        self.idx_C5H4_mantle=1091
+        self.idx_C5N_surface=638
+        self.idx_C5N_mantle=1092
+        self.idx_C5O_surface=639
+        self.idx_C5O_mantle=1093
+        self.idx_C6_surface=640
+        self.idx_C6_mantle=1094
+        self.idx_C6H_surface=641
+        self.idx_C6H_mantle=1095
+        self.idx_C6H2_surface=642
+        self.idx_C6H2_mantle=1096
+        self.idx_C6H3_surface=643
+        self.idx_C6H3_mantle=1097
+        self.idx_C6H4_surface=644
+        self.idx_C6H4_mantle=1098
+        self.idx_C6H6_surface=645
+        self.idx_C6H6_mantle=1099
+        self.idx_C6N_surface=646
+        self.idx_C6N_mantle=1100
+        self.idx_C7_surface=647
+        self.idx_C7_mantle=1101
+        self.idx_C7H_surface=648
+        self.idx_C7H_mantle=1102
+        self.idx_C7H2_surface=649
+        self.idx_C7H2_mantle=1103
+        self.idx_C7H3_surface=650
+        self.idx_C7H3_mantle=1104
+        self.idx_C7H4_surface=651
+        self.idx_C7H4_mantle=1105
+        self.idx_C7N_surface=652
+        self.idx_C7N_mantle=1106
+        self.idx_C7O_surface=653
+        self.idx_C7O_mantle=1107
+        self.idx_C8_surface=654
+        self.idx_C8_mantle=1108
+        self.idx_C8H_surface=655
+        self.idx_C8H_mantle=1109
+        self.idx_C8H2_surface=656
+        self.idx_C8H2_mantle=1110
+        self.idx_C8H3_surface=657
+        self.idx_C8H3_mantle=1111
+        self.idx_C8H4_surface=658
+        self.idx_C8H4_mantle=1112
+        self.idx_C8N_surface=659
+        self.idx_C8N_mantle=1113
+        self.idx_C9_surface=660
+        self.idx_C9_mantle=1114
+        self.idx_C9H_surface=661
+        self.idx_C9H_mantle=1115
+        self.idx_C9H2_surface=662
+        self.idx_C9H2_mantle=1116
+        self.idx_C9H3_surface=663
+        self.idx_C9H3_mantle=1117
+        self.idx_C9H4_surface=664
+        self.idx_C9H4_mantle=1118
+        self.idx_C9N_surface=665
+        self.idx_C9N_mantle=1119
+        self.idx_C9O_surface=666
+        self.idx_C9O_mantle=1120
+        self.idx_CCH_surface=667
+        self.idx_CCH_mantle=1121
+        self.idx_CCD_surface=668
+        self.idx_CCD_mantle=1122
+        self.idx_CCN_surface=669
+        self.idx_CCN_mantle=1123
+        self.idx_CCO_surface=670
+        self.idx_CCO_mantle=1124
+        self.idx_CCS_surface=671
+        self.idx_CCS_mantle=1125
+        self.idx_CD3CN_surface=672
+        self.idx_CD3CN_mantle=1126
+        self.idx_CH2CCH_surface=673
+        self.idx_CH2CCH_mantle=1127
+        self.idx_CH2CCD_surface=674
+        self.idx_CH2CCD_mantle=1128
+        self.idx_CHDCCH_surface=675
+        self.idx_CHDCCH_mantle=1129
+        self.idx_CHDCCD_surface=676
+        self.idx_CHDCCD_mantle=1130
+        self.idx_CD2CCH_surface=677
+        self.idx_CD2CCH_mantle=1131
+        self.idx_CD2CCD_surface=678
+        self.idx_CD2CCD_mantle=1132
+        self.idx_CH2CHC2H_surface=679
+        self.idx_CH2CHC2H_mantle=1133
+        self.idx_CH2CHCHCH2_surface=680
+        self.idx_CH2CHCHCH2_mantle=1134
+        self.idx_CH2CHCN_surface=681
+        self.idx_CH2CHCN_mantle=1135
+        self.idx_CH2NH_surface=682
+        self.idx_CH2NH_mantle=1136
+        self.idx_CHDNH_surface=683
+        self.idx_CHDNH_mantle=1137
+        self.idx_CHDND_surface=684
+        self.idx_CHDND_mantle=1138
+        self.idx_CH2ND_surface=685
+        self.idx_CH2ND_mantle=1139
+        self.idx_CD2NH_surface=686
+        self.idx_CD2NH_mantle=1140
+        self.idx_CD2ND_surface=687
+        self.idx_CD2ND_mantle=1141
+        self.idx_CH2NH2_surface=688
+        self.idx_CH2NH2_mantle=1142
+        self.idx_CH2NHD_surface=689
+        self.idx_CH2NHD_mantle=1143
+        self.idx_CHDNH2_surface=690
+        self.idx_CHDNH2_mantle=1144
+        self.idx_CHDNHD_surface=691
+        self.idx_CHDNHD_mantle=1145
+        self.idx_CHDND2_surface=692
+        self.idx_CHDND2_mantle=1146
+        self.idx_CH2ND2_surface=693
+        self.idx_CH2ND2_mantle=1147
+        self.idx_CD2NH2_surface=694
+        self.idx_CD2NH2_mantle=1148
+        self.idx_CD2NHD_surface=695
+        self.idx_CD2NHD_mantle=1149
+        self.idx_CD2ND2_surface=696
+        self.idx_CD2ND2_mantle=1150
+        self.idx_CH3C3N_surface=697
+        self.idx_CH3C3N_mantle=1151
+        self.idx_CH3C4H_surface=698
+        self.idx_CH3C4H_mantle=1152
+        self.idx_CH3C5N_surface=699
+        self.idx_CH3C5N_mantle=1153
+        self.idx_CH3C6H_surface=700
+        self.idx_CH3C6H_mantle=1154
+        self.idx_CH3C7N_surface=701
+        self.idx_CH3C7N_mantle=1155
+        self.idx_CH3CCH_surface=702
+        self.idx_CH3CCH_mantle=1156
+        self.idx_CH3CH2OH_surface=703
+        self.idx_CH3CH2OH_mantle=1157
+        self.idx_CH3CHCH2_surface=704
+        self.idx_CH3CHCH2_mantle=1158
+        self.idx_CH3CHO_surface=705
+        self.idx_CH3CHO_mantle=1159
+        self.idx_CH3CN_surface=706
+        self.idx_CH3CN_mantle=1160
+        self.idx_CH2DCN_surface=707
+        self.idx_CH2DCN_mantle=1161
+        self.idx_CHD2CN_surface=708
+        self.idx_CHD2CN_mantle=1162
+        self.idx_CH3COCH3_surface=709
+        self.idx_CH3COCH3_mantle=1163
+        self.idx_CH3NH2_surface=710
+        self.idx_CH3NH2_mantle=1164
+        self.idx_CH3OCH2_surface=711
+        self.idx_CH3OCH2_mantle=1165
+        self.idx_CH3OCH3_surface=712
+        self.idx_CH3OCH3_mantle=1166
+        self.idx_CN_surface=713
+        self.idx_CN_mantle=1167
+        self.idx_CS_surface=714
+        self.idx_CS_mantle=1168
+        self.idx_H2CCN_surface=715
+        self.idx_H2CCN_mantle=1169
+        self.idx_HDCCN_surface=716
+        self.idx_HDCCN_mantle=1170
+        self.idx_D2CCN_surface=717
+        self.idx_D2CCN_mantle=1171
+        self.idx_H2CCO_surface=718
+        self.idx_H2CCO_mantle=1172
+        self.idx_HDCCO_surface=719
+        self.idx_HDCCO_mantle=1173
+        self.idx_D2CCO_surface=720
+        self.idx_D2CCO_mantle=1174
+        self.idx_H2CN_surface=721
+        self.idx_H2CN_mantle=1175
+        self.idx_HDCN_surface=722
+        self.idx_HDCN_mantle=1176
+        self.idx_D2CN_surface=723
+        self.idx_D2CN_mantle=1177
+        self.idx_H2CS_surface=724
+        self.idx_H2CS_mantle=1178
+        self.idx_HDCS_surface=725
+        self.idx_HDCS_mantle=1179
+        self.idx_D2CS_surface=726
+        self.idx_D2CS_mantle=1180
+        self.idx_H2S_surface=727
+        self.idx_H2S_mantle=1181
+        self.idx_HDS_surface=728
+        self.idx_HDS_mantle=1182
+        self.idx_D2S_surface=729
+        self.idx_D2S_mantle=1183
+        self.idx_HC2O_surface=730
+        self.idx_HC2O_mantle=1184
+        self.idx_DC2O_surface=731
+        self.idx_DC2O_mantle=1185
+        self.idx_HC3N_surface=732
+        self.idx_HC3N_mantle=1186
+        self.idx_DC3N_surface=733
+        self.idx_DC3N_mantle=1187
+        self.idx_HC4N_surface=734
+        self.idx_HC4N_mantle=1188
+        self.idx_DC4N_surface=735
+        self.idx_DC4N_mantle=1189
+        self.idx_HC5N_surface=736
+        self.idx_HC5N_mantle=1190
+        self.idx_HC6N_surface=737
+        self.idx_HC6N_mantle=1191
+        self.idx_HC7N_surface=738
+        self.idx_HC7N_mantle=1192
+        self.idx_HC8N_surface=739
+        self.idx_HC8N_mantle=1193
+        self.idx_HC9N_surface=740
+        self.idx_HC9N_mantle=1194
+        self.idx_HCCNC_surface=741
+        self.idx_HCCNC_mantle=1195
+        self.idx_DCCNC_surface=742
+        self.idx_DCCNC_mantle=1196
+        self.idx_HCN_surface=743
+        self.idx_HCN_mantle=1197
+        self.idx_DCN_surface=744
+        self.idx_DCN_mantle=1198
+        self.idx_HCNCC_surface=745
+        self.idx_HCNCC_mantle=1199
+        self.idx_DCNCC_surface=746
+        self.idx_DCNCC_mantle=1200
+        self.idx_HCOOCH3_surface=747
+        self.idx_HCOOCH3_mantle=1201
+        self.idx_HCS_surface=748
+        self.idx_HCS_mantle=1202
+        self.idx_DCS_surface=749
+        self.idx_DCS_mantle=1203
+        self.idx_HNC_surface=750
+        self.idx_HNC_mantle=1204
+        self.idx_DNC_surface=751
+        self.idx_DNC_mantle=1205
+        self.idx_HNCCC_surface=752
+        self.idx_HNCCC_mantle=1206
+        self.idx_DNCCC_surface=753
+        self.idx_DNCCC_mantle=1207
+        self.idx_HNCO_surface=754
+        self.idx_HNCO_mantle=1208
+        self.idx_DNCO_surface=755
+        self.idx_DNCO_mantle=1209
+        self.idx_HNO_surface=756
+        self.idx_HNO_mantle=1210
+        self.idx_DNO_surface=757
+        self.idx_DNO_mantle=1211
+        self.idx_HS_surface=758
+        self.idx_HS_mantle=1212
+        self.idx_DS_surface=759
+        self.idx_DS_mantle=1213
+        self.idx_N2_surface=760
+        self.idx_N2_mantle=1214
+        self.idx_N2O_surface=761
+        self.idx_N2O_mantle=1215
+        self.idx_NC4N_surface=762
+        self.idx_NC4N_mantle=1216
+        self.idx_NC6N_surface=763
+        self.idx_NC6N_mantle=1217
+        self.idx_NC8N_surface=764
+        self.idx_NC8N_mantle=1218
+        self.idx_NH2CHO_surface=765
+        self.idx_NH2CHO_mantle=1219
+        self.idx_NH2CDO_surface=766
+        self.idx_NH2CDO_mantle=1220
+        self.idx_NHDCHO_surface=767
+        self.idx_NHDCHO_mantle=1221
+        self.idx_NHDCDO_surface=768
+        self.idx_NHDCDO_mantle=1222
+        self.idx_ND2CHO_surface=769
+        self.idx_ND2CHO_mantle=1223
+        self.idx_ND2CDO_surface=770
+        self.idx_ND2CDO_mantle=1224
+        self.idx_NH2CN_surface=771
+        self.idx_NH2CN_mantle=1225
+        self.idx_NHDCN_surface=772
+        self.idx_NHDCN_mantle=1226
+        self.idx_ND2CN_surface=773
+        self.idx_ND2CN_mantle=1227
+        self.idx_HSO_surface=774
+        self.idx_HSO_mantle=1228
+        self.idx_DSO_surface=775
+        self.idx_DSO_mantle=1229
+        self.idx_HSS_surface=776
+        self.idx_HSS_mantle=1230
+        self.idx_DSS_surface=777
+        self.idx_DSS_mantle=1231
+        self.idx_HSSH_surface=778
+        self.idx_HSSH_mantle=1232
+        self.idx_HSSD_surface=779
+        self.idx_HSSD_mantle=1233
+        self.idx_DSSH_surface=780
+        self.idx_DSSH_mantle=1234
+        self.idx_DSSD_surface=781
+        self.idx_DSSD_mantle=1235
+        self.idx_NO_surface=782
+        self.idx_NO_mantle=1236
+        self.idx_NO2_surface=783
+        self.idx_NO2_mantle=1237
+        self.idx_NS_surface=784
+        self.idx_NS_mantle=1238
+        self.idx_OCN_surface=785
+        self.idx_OCN_mantle=1239
+        self.idx_OCS_surface=786
+        self.idx_OCS_mantle=1240
+        self.idx_S2_surface=787
+        self.idx_S2_mantle=1241
+        self.idx_SO_surface=788
+        self.idx_SO_mantle=1242
+        self.idx_SO2_surface=789
+        self.idx_SO2_mantle=1243
+        self.idx_CH3OCHO_surface=790
+        self.idx_CH3OCHO_mantle=1244
+        self.idx_Si_surface=791
+        self.idx_Si_mantle=1245
+        self.idx_SiS_surface=792
+        self.idx_SiS_mantle=1246
+        self.idx_SiN_surface=793
+        self.idx_SiN_mantle=1247
+        self.idx_SiC_surface=794
+        self.idx_SiC_mantle=1248
+        self.idx_SiH_surface=795
+        self.idx_SiH_mantle=1249
+        self.idx_SiH2_surface=796
+        self.idx_SiH2_mantle=1250
+        self.idx_SiH3_surface=797
+        self.idx_SiH3_mantle=1251
+        self.idx_SiH4_surface=798
+        self.idx_SiH4_mantle=1252
+        self.idx_SiC2CH3_surface=799
+        self.idx_SiC2CH3_mantle=1253
+        self.idx_SiC3H_surface=800
+        self.idx_SiC3H_mantle=1254
+        self.idx_SiC3H5_surface=801
+        self.idx_SiC3H5_mantle=1255
+        self.idx_SiC4_surface=802
+        self.idx_SiC4_mantle=1256
+        self.idx_SiC4H_surface=803
+        self.idx_SiC4H_mantle=1257
+        self.idx_SiC6H_surface=804
+        self.idx_SiC6H_mantle=1258
+        self.idx_SiC8H_surface=805
+        self.idx_SiC8H_mantle=1259
+        self.idx_c_HCCHSi_surface=806
+        self.idx_c_HCCHSi_mantle=1260
+        self.idx_c_SiC2_surface=807
+        self.idx_c_SiC2_mantle=1261
+        self.idx_l_C3H_surface=808
+        self.idx_l_C3H_mantle=1262
+        self.idx_l_C3D_surface=809
+        self.idx_l_C3D_mantle=1263
+        self.idx_c_C3H_surface=810
+        self.idx_c_C3H_mantle=1264
+        self.idx_c_C3D_surface=811
+        self.idx_c_C3D_mantle=1265
+        self.idx_l_SiC3_surface=812
+        self.idx_l_SiC3_mantle=1266
+        self.idx_l_C3H2_surface=813
+        self.idx_l_C3H2_mantle=1267
+        self.idx_l_C3HD_surface=814
+        self.idx_l_C3HD_mantle=1268
+        self.idx_l_C3D2_surface=815
+        self.idx_l_C3D2_mantle=1269
+        self.idx_c_C3H2_surface=816
+        self.idx_c_C3H2_mantle=1270
+        self.idx_c_C3HD_surface=817
+        self.idx_c_C3HD_mantle=1271
+        self.idx_c_C3D2_surface=818
+        self.idx_c_C3D2_mantle=1272
+        self.idx_Mg_surface=819
+        self.idx_Mg_mantle=1273
+        self.idx_MgH_surface=820
+        self.idx_MgH_mantle=1274
+        self.idx_MgH2_surface=821
+        self.idx_MgH2_mantle=1275
+        self.idx_Na_surface=822
+        self.idx_Na_mantle=1276
+        self.idx_NaH_surface=823
+        self.idx_NaH_mantle=1277
+        self.idx_F_surface=824
+        self.idx_F_mantle=1278
+        self.idx_HF_surface=825
+        self.idx_HF_mantle=1279
+        self.idx_DF_surface=826
+        self.idx_DF_mantle=1280
+        self.idx_MgD_surface=827
+        self.idx_MgD_mantle=1281
+        self.idx_MgHD_surface=828
+        self.idx_MgHD_mantle=1282
+        self.idx_MgD2_surface=829
+        self.idx_MgD2_mantle=1283
+        self.idx_NaD_surface=830
+        self.idx_NaD_mantle=1284
+        self.idx_SiD_surface=831
+        self.idx_SiD_mantle=1285
+        self.idx_Cl_surface=832
+        self.idx_Cl_mantle=1286
+        self.idx_HCl_surface=833
+        self.idx_HCl_mantle=1287
+        self.idx_DCl_surface=834
+        self.idx_DCl_mantle=1288
+        self.idx_H2Cl_surface=835
+        self.idx_H2Cl_mantle=1289
+        self.idx_HDCl_surface=836
+        self.idx_HDCl_mantle=1290
+        self.idx_D2Cl_surface=837
+        self.idx_D2Cl_mantle=1291
+        self.idx_CCl_surface=838
+        self.idx_CCl_mantle=1292
+        self.idx_ClO_surface=839
+        self.idx_ClO_mantle=1293
+        self.idx_C3H3_surface=840
+        self.idx_C3H3_mantle=1294
+        self.idx_C3H2D_surface=841
+        self.idx_C3H2D_mantle=1295
+        self.idx_C3HD2_surface=842
+        self.idx_C3HD2_mantle=1296
+        self.idx_C3D3_surface=843
+        self.idx_C3D3_mantle=1297
+        self.idx_C3H4_surface=844
+        self.idx_C3H4_mantle=1298
+        self.idx_C3H3D_surface=845
+        self.idx_C3H3D_mantle=1299
+        self.idx_C3H2D2_surface=846
+        self.idx_C3H2D2_mantle=1300
+        self.idx_HCCN_surface=847
+        self.idx_HCCN_mantle=1301
+        self.idx_DCCN_surface=848
+        self.idx_DCCN_mantle=1302
+        self.idx_C2H2N_surface=849
+        self.idx_C2H2N_mantle=1303
+        self.idx_C2H5OH_surface=850
+        self.idx_C2H5OH_mantle=1304
+        self.idx_C2H3D3_surface=851
+        self.idx_C2H3D3_mantle=1305
+        self.idx_C2H5D_surface=852
+        self.idx_C2H5D_mantle=1306
+        self.idx_C2H4D2_surface=853
+        self.idx_C2H4D2_mantle=1307
+        self.idx_C2H3N_surface=854
+        self.idx_C2H3N_mantle=1308
+        self.idx_C2H4O_surface=855
+        self.idx_C2H4O_mantle=1309
+        self.idx_CH2DCHO_surface=856
+        self.idx_CH2DCHO_mantle=1310
+        self.idx_CH3CDO_surface=857
+        self.idx_CH3CDO_mantle=1311
+        self.idx_CD3CHO_surface=858
+        self.idx_CD3CHO_mantle=1312
+        self.idx_CHD2CDO_surface=859
+        self.idx_CHD2CDO_mantle=1313
+        self.idx_CHD2CHO_surface=860
+        self.idx_CHD2CHO_mantle=1314
+        self.idx_CH2DCDO_surface=861
+        self.idx_CH2DCDO_mantle=1315
+        self.idx_C2H4D_surface=862
+        self.idx_C2H4D_mantle=1316
+        self.idx_C2H2D3_surface=863
+        self.idx_C2H2D3_mantle=1317
+        self.idx_C2H3D2_surface=864
+        self.idx_C2H3D2_mantle=1318
+        self.idx_C3H3N_surface=865
+        self.idx_C3H3N_mantle=1319
+        self.idx_H4C3N_surface=866
+        self.idx_H4C3N_mantle=1320
+        self.idx_C3D3N_surface=867
+        self.idx_C3D3N_mantle=1321
+        self.idx_HD3C3N_surface=868
+        self.idx_HD3C3N_mantle=1322
+        self.idx_C3H2DN_surface=869
+        self.idx_C3H2DN_mantle=1323
+        self.idx_H3DC3N_surface=870
+        self.idx_H3DC3N_mantle=1324
+        self.idx_C3HD2N_surface=871
+        self.idx_C3HD2N_mantle=1325
+        self.idx_H2D2C3N_surface=872
+        self.idx_H2D2C3N_mantle=1326
+        self.idx_HC3O_surface=873
+        self.idx_HC3O_mantle=1327
+        self.idx_DC3O_surface=874
+        self.idx_DC3O_mantle=1328
+        self.idx_C4H4_surface=875
+        self.idx_C4H4_mantle=1329
+        self.idx_CH5N_surface=876
+        self.idx_CH5N_mantle=1330
+        self.idx_CH3NH_surface=877
+        self.idx_CH3NH_mantle=1331
+        self.idx_FeD_surface=878
+        self.idx_FeD_mantle=1332
+        self.idx_H2C3N_surface=879
+        self.idx_H2C3N_mantle=1333
+        self.idx_H2C5N_surface=880
+        self.idx_H2C5N_mantle=1334
+        self.idx_H3C5N_surface=881
+        self.idx_H3C5N_mantle=1335
+        self.idx_H2C7N_surface=882
+        self.idx_H2C7N_mantle=1336
+        self.idx_H3C7N_surface=883
+        self.idx_H3C7N_mantle=1337
+        self.idx_H2C9N_surface=884
+        self.idx_H2C9N_mantle=1338
+        self.idx_H3C9N_surface=885
+        self.idx_H3C9N_mantle=1339
+        self.idx_H5C3N_surface=886
+        self.idx_H5C3N_mantle=1340
+        self.idx_C2H2O_surface=887
+        self.idx_C2H2O_mantle=1341
+        self.idx_C2HDO_surface=888
+        self.idx_C2HDO_mantle=1342
+        self.idx_C2D2O_surface=889
+        self.idx_C2D2O_mantle=1343
+        self.idx_HDC3N_surface=890
+        self.idx_HDC3N_mantle=1344
+        self.idx_D2C3N_surface=891
+        self.idx_D2C3N_mantle=1345
+        self.idx_H2C3O_surface=892
+        self.idx_H2C3O_mantle=1346
+        self.idx_HDC3O_surface=893
+        self.idx_HDC3O_mantle=1347
+        self.idx_D2C3O_surface=894
+        self.idx_D2C3O_mantle=1348
+        self.idx_C2HDN_surface=895
+        self.idx_C2HDN_mantle=1349
+        self.idx_C2D2N_surface=896
+        self.idx_C2D2N_mantle=1350
+        self.idx_CH3N_surface=897
+        self.idx_CH3N_mantle=1351
+        self.idx_N2H2_surface=898
+        self.idx_N2H2_mantle=1352
+        self.idx_N2HD_surface=899
+        self.idx_N2HD_mantle=1353
+        self.idx_N2D2_surface=900
+        self.idx_N2D2_mantle=1354
+        self.idx_NH2OH_surface=901
+        self.idx_NH2OH_mantle=1355
+        self.idx_NH2OD_surface=902
+        self.idx_NH2OD_mantle=1356
+        self.idx_N2H_surface=903
+        self.idx_N2H_mantle=1357
+        self.idx_N2D_surface=904
+        self.idx_N2D_mantle=1358
+        self.idx_CNH2_surface=905
+        self.idx_CNH2_mantle=1359
+        self.idx_CHNH2_surface=906
+        self.idx_CHNH2_mantle=1360
+        self.idx_HON_surface=907
+        self.idx_HON_mantle=1361
+        self.idx_DON_surface=908
+        self.idx_DON_mantle=1362
+        self.idx_NHNO_surface=909
+        self.idx_NHNO_mantle=1363
+        self.idx_CH2DN_surface=910
+        self.idx_CH2DN_mantle=1364
+        self.idx_CHD2N_surface=911
+        self.idx_CHD2N_mantle=1365
+        self.idx_CD3N_surface=912
+        self.idx_CD3N_mantle=1366
+        self.idx_NH2NO_surface=913
+        self.idx_NH2NO_mantle=1367
+        self.idx_CH3CO_surface=914
+        self.idx_CH3CO_mantle=1368
+        self.idx_CH2DOCH3_surface=915
+        self.idx_CH2DOCH3_mantle=1369
+        self.idx_CHD2OCH3_surface=916
+        self.idx_CHD2OCH3_mantle=1370
+        self.idx_CH2DOCH2D_surface=917
+        self.idx_CH2DOCH2D_mantle=1371
+        self.idx_CD3OCH3_surface=918
+        self.idx_CD3OCH3_mantle=1372
+        self.idx_CHD2OCH2D_surface=919
+        self.idx_CHD2OCH2D_mantle=1373
+        self.idx_DCOOCH3_surface=920
+        self.idx_DCOOCH3_mantle=1374
+        self.idx_HCOOCH2D_surface=921
+        self.idx_HCOOCH2D_mantle=1375
+        self.idx_DCOOCH2D_surface=922
+        self.idx_DCOOCH2D_mantle=1376
+        self.idx_HCOOCHD2_surface=923
+        self.idx_HCOOCHD2_mantle=1377
+        self.idx_DCOOCHD2_surface=924
+        self.idx_DCOOCHD2_mantle=1378
+        self.idx_HCOOCD3_surface=925
+        self.idx_HCOOCD3_mantle=1379
+        self.idx_DCOOCD3_surface=926
+        self.idx_DCOOCD3_mantle=1380
+        self.idx_NH2CO_surface=927
+        self.idx_NH2CO_mantle=1381
+        self.idx_NHDCO_surface=928
+        self.idx_NHDCO_mantle=1382
+        self.idx_ND2CO_surface=929
+        self.idx_ND2CO_mantle=1383
+        self.idx_CH2DOCHO_surface=930
+        self.idx_CH2DOCHO_mantle=1384
+        self.idx_CH3OCDO_surface=931
+        self.idx_CH3OCDO_mantle=1385
+        self.idx_CHD2OCHO_surface=932
+        self.idx_CHD2OCHO_mantle=1386
+        self.idx_CH2DOCDO_surface=933
+        self.idx_CH2DOCDO_mantle=1387
+        self.idx_CD3OCHO_surface=934
+        self.idx_CD3OCHO_mantle=1388
+        self.idx_CHD2OCDO_surface=935
+        self.idx_CHD2OCDO_mantle=1389
+        self.idx_CHDOCDO_surface=936
+        self.idx_CHDOCDO_mantle=1390
+        self.idx_CHDOCHDO_surface=937
+        self.idx_CHDOCHDO_mantle=1391
+        self.idx_CH3OCHD_surface=938
+        self.idx_CH3OCHD_mantle=1392
+        self.idx_CH2DOCH2_surface=939
+        self.idx_CH2DOCH2_mantle=1393
+        self.idx_CH2DOCHD_surface=940
+        self.idx_CH2DOCHD_mantle=1394
+        self.idx_CHD2OCH2_surface=941
+        self.idx_CHD2OCH2_mantle=1395
+        self.idx_CH3OCD2_surface=942
+        self.idx_CH3OCD2_mantle=1396
+        self.idx_CH2DOCD2_surface=943
+        self.idx_CH2DOCD2_mantle=1397
+        self.idx_CH3OCHD2_surface=944
+        self.idx_CH3OCHD2_mantle=1398
+        self.idx_CH3OCH2D_surface=945
+        self.idx_CH3OCH2D_mantle=1399
+        self.idx_CH2DCO_surface=946
+        self.idx_CH2DCO_mantle=1400
+        self.idx_CH3NHD_surface=947
+        self.idx_CH3NHD_mantle=1401
+        self.idx_CH2DNH2_surface=948
+        self.idx_CH2DNH2_mantle=1402
+        self.idx_P_surface=949
+        self.idx_P_mantle=1403
+        self.idx_PO_surface=950
+        self.idx_PO_mantle=1404
+        self.idx_PH_surface=951
+        self.idx_PH_mantle=1405
+        self.idx_PD_surface=952
+        self.idx_PD_mantle=1406
+        self.idx_PH2_surface=953
+        self.idx_PH2_mantle=1407
+        self.idx_PHD_surface=954
+        self.idx_PHD_mantle=1408
+        self.idx_PD2_surface=955
+        self.idx_PD2_mantle=1409
+        self.idx_PN_surface=956
+        self.idx_PN_mantle=1410
+        self.idx_CP_surface=957
+        self.idx_CP_mantle=1411
+        self.idx_CCP_surface=958
+        self.idx_CCP_mantle=1412
+        self.idx_C3P_surface=959
+        self.idx_C3P_mantle=1413
+        self.idx_C4P_surface=960
+        self.idx_C4P_mantle=1414
+        self.idx_CH2PH_surface=961
+        self.idx_CH2PH_mantle=1415
+        self.idx_CHD2PH_surface=962
+        self.idx_CHD2PH_mantle=1416
+        self.idx_CH2PD_surface=963
+        self.idx_CH2PD_mantle=1417
+        self.idx_CHDPD_surface=964
+        self.idx_CHDPD_mantle=1418
+        self.idx_CD2P2_surface=965
+        self.idx_CD2P2_mantle=1419
+        self.idx_HCP_surface=966
+        self.idx_HCP_mantle=1420
+        self.idx_DCP_surface=967
+        self.idx_DCP_mantle=1421
+        self.idx_HCCP_surface=968
+        self.idx_HCCP_mantle=1422
+        self.idx_DCCP_surface=969
+        self.idx_DCCP_mantle=1423
+        self.idx_HPO_surface=970
+        self.idx_HPO_mantle=1424
+        self.idx_DPO_surface=971
+        self.idx_DPO_mantle=1425
+        self.idx_surface_mask=972
+        self.idx_mantle_mask=973
+        self.idx_dummy=974
+
+        # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+        ##END_IDXLIST
+
+        self.lib.kemimo_dumpFluxes.restype = None
+        self.lib.kemimo_dumpFluxes.argtypes = [
+            array_1d_double, int_byref, dble_byref]
+        self.lib.kemimo_loadVerbatim.restype = None
+        self.lib.kemimo_loadVerbatim.argtypes = None
+        self.lib.kemimo_computeRates.restype = None
+        self.lib.kemimo_computeRates.argtypes = [array_1d_double,
+            dble_byref, dble_byref, dble_byref, dble_byref]
+        self.lib.kemimo_dochem.restype = None
+        self.lib.kemimo_dochem.argtypes = [array_1d_double, dble_byref]
+        self.lib.kemimo_theta_H2.restype = ctypes.c_double
+        self.lib.kemimo_theta_H2.argtypes = [dble_byref, dble_byref]
+        self.lib.kemimo_get_H2_idx.restype = None
+        self.lib.kemimo_get_H2_idx.argtypes = [int_byref, int_byref, int_byref]
+        # self.lib.kemimo_returnFluxes.restype = None
+        # self.lib.kemimo_returnFluxes.argtypes = [
+        #     array_1d_double, int_byref, array_pointer, array_pointer]
