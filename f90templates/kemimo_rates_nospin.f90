@@ -24,7 +24,7 @@ contains
     ! Estimate N_H2, N_CO etc from Av:
     N_H2 = 0.5 * 1.59d21 * variable_Av
     N_CO = N_H2 * n(idx_CO_gas)/n(idx_H2_gas)
-    N_HD = N_H2 * n(idx_HD_gas)/n(idx_H2_gas)
+    !N_HD = N_H2 * n(idx_HD_gas)/n(idx_H2_gas)
     N_HI = N_H2 * n(idx_H_gas)/n(idx_H2_gas)
     N_N2 = N_H2 * n(idx_N2_gas)/n(idx_H2_gas)
 
@@ -50,11 +50,11 @@ contains
     ss_H2 = ss_H2 * 1d0/(1d0 + N_HI/2.85d23)**(1.62) * exp(-1.49d-1 * N_HI/2.85d23)
     ! ---------------------
     ! HD
-    x_HD = N_HD / N_H2_crit
-    ss_HD = (1d0 - omega)/(1d0 + x_HD)**a * exp(-5d-7 * (1d0 + x_HD)) + omega/sqrt(1d0 + x_HD) * exp(-8.5d-4 * sqrt(1d0 + x_HD))
+    !x_HD = N_HD / N_H2_crit
+    !ss_HD = (1d0 - omega)/(1d0 + x_HD)**a * exp(-5d-7 * (1d0 + x_HD)) + omega/sqrt(1d0 + x_HD) * exp(-8.5d-4 * sqrt(1d0 + x_HD))
     ! H2 and HI shielding of HD (Wolcot-Green + Haiman):
-    ss_HD = ss_HD * 1d0/(1d0 + N_H2/2.34d19)**(2.38d-1) * exp(-5.2d-3 * N_H2/2.34d19)
-    ss_HD = ss_HD * 1d0/(1d0 + N_HI/2.85d23)**(1.62) * exp(-1.49d-1 * N_HI/2.85d23)
+    !ss_HD = ss_HD * 1d0/(1d0 + N_H2/2.34d19)**(2.38d-1) * exp(-5.2d-3 * N_H2/2.34d19)
+    !ss_HD = ss_HD * 1d0/(1d0 + N_HI/2.85d23)**(1.62) * exp(-1.49d-1 * N_HI/2.85d23)
     ! ---------------------
     ! N2
     fname_N2 = "N2_shield_50K.dat"
