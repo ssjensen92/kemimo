@@ -14,6 +14,7 @@ contains
     real*8,intent(in)::variable_crflux, variable_Av
     real*8,intent(in)::a_grain, Gnot, Tdust
     real*8 :: a, x_H2, x_HD, omega, N_H2_crit
+    real*8 :: zeta_H2
     character(len=255) :: fname_CO, fname_N2
 
     ! -------------------------------------------------
@@ -29,6 +30,18 @@ contains
     N_N2 = N_H2 * n(idx_N2_gas)/(n(idx_o_H2_gas)+n(idx_p_H2_gas))
 
 
+    ! -------------------------------------------------
+    ! Calculate the cosmic-ray dissociation rates from N_H2
+    if (variable_crflux < 0d0) then
+      ! use parameterized value
+      print *, "Using CR dissociation rate from Padovani+2018"
+      zeta_H2 = CR_diss(N_H2)
+      print*, zeta_H2
+    else
+      ! use provided value
+      print *, "Using provided CR dissociation rate", variable_crflux
+      zeta_H2 = variable_crflux
+    end if
 
     ! --------------------------------------------------------
     ! self-shielding functions:
@@ -63,10 +76,10 @@ contains
 
     ! -------------------------------------------------
     kall(:) = 0d0
-    call computeGasRates(n, ngas, variable_Tgas, variable_crflux, variable_Av, &
+    call computeGasRates(n, ngas, variable_Tgas, zeta_H2, variable_Av, &
        Tdust, a_grain, Gnot)
 
-    call computeDustRates(n, ngas, variable_Tgas, variable_crflux, variable_Av, &
+    call computeDustRates(n, ngas, variable_Tgas, zeta_H2, variable_Av, &
        Tdust, a_grain, Gnot)
 
     !small bias to favour solver convergence

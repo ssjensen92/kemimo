@@ -46,7 +46,7 @@ module kemimo_commons
   !!END_ARRAYSIZE
   ! GRAIN PROPERTIES:
   real*8, parameter :: d2g = 1d-2 !dust/gas mass ratio
-  real*8, parameter :: rho0 = 3d0 !bulk density, g/cm3
+  real*8, parameter :: rho0 = 2.5d0 !bulk density, g/cm3
   real*8, parameter :: mu = 1.43 !mean molecular weight
   real*8, parameter :: app = 3d-8 !binding sites separation, cm
   real*8, parameter :: agrain = 1d-5
@@ -58,8 +58,8 @@ module kemimo_commons
   real*8 :: ss_CO, ss_H2, ss_HD, ss_N2
 
   ! UV RADIATION:
-  real*8, parameter :: Fnot = 1d8 ! Draine ISRF
-  real*8, parameter :: F_cr_not = 1d4 ! Cosmic-ray induced UV photons (never attenuated)
+  real*8, parameter :: Fnot = 2d8 ! Draine ISRF
+  real*8, parameter :: F_cr_not = 3d3 ! Cosmic-ray induced UV photons (never attenuated)
   real*8 :: F_cr
 
   ! Photodesorption yield for CO:
@@ -415,5 +415,37 @@ module kemimo_commons
     return
 
   end function calc_ss
+
+  ! -************************
+  ! Function for computing the cosmic ray ionization rate following Padovani et al. 2018 (low)
+  function CR_diss(N) result(zeta)
+    implicit none
+    real*8, intent(in):: N
+    real*8 :: zeta
+    ! Data array
+    real*8, parameter :: data(10,2) = reshape( (/0.0*1d0, -3.331056497233d6, &
+                                                1.0*1d0, 1.207744586503d6, &
+                                                2.0*1d0, -1.913914106234d5, &
+                                                3.0*1d0, 1.731822350618d4, &
+                                                4.0*1d0, -9.790557206178d2, &
+                                                5.0*1d0, 3.543830893824d1, &
+                                                6.0*1d0, -8.034869454520d-1, &
+                                                7.0*1d0, 1.048808593086d-2, &
+                                                8.0*1d0, -6.188760100997d-5, &
+                                                9.0*1d0, 3.122820990797d-8 /), (/10,2/), order=(/2,1/))
+
+    ! formula: log10(zeta) = sum_i=0^9 a_i (log10(N))^i
+    integer :: i
+    real*8 :: logN, logzeta
+
+    logN = log10(N)
+    logzeta = 0.d0
+    do i = 1,10
+        logzeta = logzeta + data(i,2)*logN**(i-1)
+    end do
+
+    zeta = 10.d0**logzeta
+
+    end function CR_diss
 
 end module kemimo_commons
