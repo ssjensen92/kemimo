@@ -56,11 +56,10 @@ contains
     a = 1.4d0
     x_H2 = N_H2 / N_H2_crit
     ! Grassi+2020:
-    ss_H2 = (1d0 - omega)/(1d0 + x_H2)**a * exp(-5.0d-7 * (1d0 + x_H2)) + omega/sqrt(1d0 + x_H2) * exp(-8.5d-4 * sqrt(1d0 + x_H2))
+    !ss_H2 = (1d0 - omega)/(1d0 + x_H2)**a * exp(-5.0d-7 * (1d0 + x_H2)) + omega/sqrt(1d0 + x_H2) * exp(-8.5d-4 * sqrt(1d0 + x_H2))
     ! Kamp & Bertoldi:
-    !ss_H2 = 9.65d-1/(1d0 + x_H2)**2.0 + 3.5d-2/sqrt(1d0 + x_H2) * exp(-8.5d-4 * sqrt(1d0 + x_H2))
-    ! HD shielding of HI:
-    ss_H2 = ss_H2 * 1d0/(1d0 + N_HI/2.85d23)**(1.62) * exp(-1.49d-1 * N_HI/2.85d23)
+    x_H2 = N_H2 / 5d14
+    ss_H2 = 9.65d-1/(1d0 + x_H2)**2.0 + 3.5d-2/sqrt(1d0 + x_H2) * exp(-8.5d-4 * sqrt(1d0 + x_H2))
     ! ---------------------
     ! HD
     x_HD = N_HD / N_H2_crit
