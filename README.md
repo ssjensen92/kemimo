@@ -1,4 +1,4 @@
-# kemimo
+# KemiMo
 Three-phase gas-grain astrochemical model. The code is provided "as-is" and not well documented at the moment. 
 The code consists of a python wrapper around a fortran core.
 Feel free to contact me if you encounter any bugs or have questions.
