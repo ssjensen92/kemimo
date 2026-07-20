@@ -319,8 +319,8 @@ contains
     use kemimo_rates
     implicit none
     integer::neq, j, ian, jan, i, ii, offset, layer, rtype
-    real*8::tt, n(neq), pdj(neq), nc(neq), dn1(neq), dn2(neq)
-    real*8:: flux, flux_eps1, flux_eps2
+    real*8::tt, n(neq), pdj(neq)
+    real*8:: flux
     real*8 :: Nsurface, Nmantle
     real*8 :: alpha, dnsdt, R
     real*8 :: Rswap_total, Rswap
@@ -334,9 +334,11 @@ contains
 
     n(idx_dummy) = 1d0
     pdj(:) = 0d0
-    if (j == idx_dummy) return
-    nc = n(:)
-    nc(j) = n(j) + 1d-12 ! small adjustment of abundance.
+    if (j == idx_dummy) then
+      ewt_fac(j) = 1d0
+      return
+    endif
+    ewt_fac(j) = 1d0
 
     ! Chemistry part:
     do ii=1, nrea-1
@@ -387,24 +389,6 @@ contains
       pdj(reactionArray(i,7)) = pdj(reactionArray(i,7)) + flux
       pdj(reactionArray(i,8)) = pdj(reactionArray(i,8)) + flux
 
-
-      flux_eps1 = flux * n(j)
-      flux_eps2 = flux * nc(j)
-
-      dn1(reactionArray(i,3)) = dn1(reactionArray(i,3)) - flux_eps1
-      dn1(reactionArray(i,4)) = dn1(reactionArray(i,4)) - flux_eps1
-      dn1(reactionArray(i,5)) = dn1(reactionArray(i,5)) + flux_eps1
-      dn1(reactionArray(i,6)) = dn1(reactionArray(i,6)) + flux_eps1
-      dn1(reactionArray(i,7)) = dn1(reactionArray(i,7)) + flux_eps1
-      dn1(reactionArray(i,8)) = dn1(reactionArray(i,8)) + flux_eps1
-
-      dn2(reactionArray(i,3)) = dn2(reactionArray(i,3)) - flux_eps2
-      dn2(reactionArray(i,4)) = dn2(reactionArray(i,4)) - flux_eps2
-      dn2(reactionArray(i,5)) = dn2(reactionArray(i,5)) + flux_eps2
-      dn2(reactionArray(i,6)) = dn2(reactionArray(i,6)) + flux_eps2
-      dn2(reactionArray(i,7)) = dn2(reactionArray(i,7)) + flux_eps2
-      dn2(reactionArray(i,8)) = dn2(reactionArray(i,8)) + flux_eps2
-
     end do
 
     pdj(idx_dummy) = 0d0
@@ -414,16 +398,10 @@ contains
       if (i == idx_p_H2_surface) cycle
       pdj(idx_surface_mask) = pdj(idx_surface_mask) + pdj(i)
 
-      dn1(idx_surface_mask) = dn1(idx_surface_mask) + dn1(i)
-      dn2(idx_surface_mask) = dn2(idx_surface_mask) + dn2(i)
     enddo
 
     R = pdj(idx_surface_mask)
     pdj(idx_surface_mask) = pdj(idx_surface_mask) * kall(nrea)
-
-    ewt_fac(j) = (dn2(idx_surface_mask)-dn1(idx_surface_mask))/dn1(idx_surface_mask) / ((nc(j)-n(j))/n(j))
-    if (ewt_fac(j) /= ewt_fac(j)) ewt_fac(j) = 1d0 ! NaN avoid.
-    if (ewt_fac(j) <= 0d0) ewt_fac(j) = 1d0 ! avoid division by zero 
     ! ----------------------------------------------------------
     ! Nmantle, Nsurface
     Nmantle = n(idx_mantle_mask) / kall(nrea)
@@ -507,6 +485,11 @@ contains
 
     endif
 
+    if (ewt_flag .ne. 0 .and. abs(dn_surface) >= 1d-25 .and. n(j) > 0d0) then
+      ewt_fac(j) = abs(pdj(idx_surface_mask) * n(j) / dn_surface)
+      if ((ewt_fac(j) < 1d0) .or. (ewt_fac(j) /= ewt_fac(j))) ewt_fac(j) = 1d0
+    endif
+
 
     ! <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
     !!END_JACOBIAN
@@ -521,30 +504,33 @@ contains
     integer :: n, itol
     real*8, dimension(nmols) :: ewt
     real*8 :: rtol_arr(*), atol_arr(*), ycur(*)
+    real*8 :: ewt_scale
     integer :: i
 
     if (ewt_flag .eq. 0) then
         ewt_fac(:) = 1.0d0
-    else
-        ewt_fac(:) = 1.0d0/ewt_fac(:)
     endif
 
     select case(itol)
     case(1)
         do i = 1, nmols
-          ewt(i) = rtol_arr(1)*abs(ycur(i))/ewt_fac(i) + atol_arr(1)
+          ewt_scale = max(1d0, ewt_fac(i))
+          ewt(i) = rtol_arr(1)*abs(ycur(i))/ewt_scale + atol_arr(1)
         enddo
     case(2)
         do i = 1, nmols
-          ewt(i) = rtol_arr(1)*abs(ycur(i))/ewt_fac(i) + atol_arr(i)
+          ewt_scale = max(1d0, ewt_fac(i))
+          ewt(i) = rtol_arr(1)*abs(ycur(i))/ewt_scale + atol_arr(i)
         enddo
     case(3)
         do i = 1, nmols
-          ewt(i) = rtol_arr(i)*abs(ycur(i))/ewt_fac(i) + atol_arr(1)
+          ewt_scale = max(1d0, ewt_fac(i))
+          ewt(i) = rtol_arr(i)*abs(ycur(i))/ewt_scale + atol_arr(1)
         enddo
     case(4)
         do i = 1, nmols
-          ewt(i) = rtol_arr(i)*abs(ycur(i))/ewt_fac(i) + atol_arr(i)
+          ewt_scale = max(1d0, ewt_fac(i))
+          ewt(i) = rtol_arr(i)*abs(ycur(i))/ewt_scale + atol_arr(i)
         enddo
     end select
 

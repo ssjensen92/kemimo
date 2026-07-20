@@ -309,7 +309,11 @@ contains
 
     n(idx_dummy) = 1d0
     pdj(:) = 0d0
-    if (j == idx_dummy) return
+    if (j == idx_dummy) then
+      ewt_fac(j) = 1d0
+      return
+    endif
+    ewt_fac(j) = 1d0
 
 
     ! Chemistry part:
@@ -447,18 +451,10 @@ contains
     endif
 
 
-    ewt_fac(:) = 1d0
-
-    ! We have to ignore very low values
-    if (abs(dn_surface) < 1d-25) return
-    ! Loop on species (This loop could be reduced)
-    do i=1, surface_end
-      if (i == idx_dummy) cycle
-      if (i == idx_H2_surface) cycle
-      if (i == idx_H2_mantle) cycle
-      ewt_fac(i) = abs(pdj(idx_surface_mask) * ndns * n(i) / (dn_surface * ndns))
-      if ((ewt_fac(i) < 1d0) .or. (ewt_fac(i) /= ewt_fac(i))) ewt_fac = 1d0
-    enddo
+    if (ewt_flag .ne. 0 .and. abs(dn_surface) >= 1d-25 .and. n(j) > 0d0) then
+      ewt_fac(j) = abs(pdj(idx_surface_mask) * n(j) / dn_surface)
+      if ((ewt_fac(j) < 1d0) .or. (ewt_fac(j) /= ewt_fac(j))) ewt_fac(j) = 1d0
+    endif
     ! <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
     !!END_JACOBIAN
 
@@ -472,30 +468,33 @@ contains
     integer :: n, itol
     real*8, dimension(nmols) :: ewt
     real*8 :: rtol_arr(*), atol_arr(*), ycur(*)
+    real*8 :: ewt_scale
     integer :: i
 
     if (ewt_flag .eq. 0) then
         ewt_fac(:) = 1.0d0
-    else
-        ewt_fac(:) = 1.0d0/ewt_fac(:)
     endif
 
     select case(itol)
     case(1)
         do i = 1, nmols
-          ewt(i) = rtol_arr(1)*abs(ycur(i))*ewt_fac(i) + atol_arr(1)
+          ewt_scale = max(1d0, ewt_fac(i))
+          ewt(i) = rtol_arr(1)*abs(ycur(i))/ewt_scale + atol_arr(1)
         enddo
     case(2)
         do i = 1, nmols
-          ewt(i) = rtol_arr(1)*abs(ycur(i))*ewt_fac(i) + atol_arr(i)
+          ewt_scale = max(1d0, ewt_fac(i))
+          ewt(i) = rtol_arr(1)*abs(ycur(i))/ewt_scale + atol_arr(i)
         enddo
     case(3)
         do i = 1, nmols
-          ewt(i) = rtol_arr(i)*abs(ycur(i))*ewt_fac(i) + atol_arr(1)
+          ewt_scale = max(1d0, ewt_fac(i))
+          ewt(i) = rtol_arr(i)*abs(ycur(i))/ewt_scale + atol_arr(1)
         enddo
     case(4)
         do i = 1, nmols
-          ewt(i) = rtol_arr(i)*abs(ycur(i))*ewt_fac(i) + atol_arr(i)
+          ewt_scale = max(1d0, ewt_fac(i))
+          ewt(i) = rtol_arr(i)*abs(ycur(i))/ewt_scale + atol_arr(i)
         enddo
     end select
 
