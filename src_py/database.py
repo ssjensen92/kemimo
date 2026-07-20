@@ -90,6 +90,9 @@ class database:
 
         # prepare species based on files data (including gas)
         self.species = [mol(x, self.mass, layer=1) for x in self.speciesNames]
+        # if gasphase only, remoev all surface species
+        if nlayers == 0:
+            self.species = [x for x in self.species if x.isGas]
 
         # get H2 ortho/para idx:
         for idx, s in enumerate(self.species):
@@ -125,6 +128,8 @@ class database:
         # Read species data
         for species in self.species:
             species.idx = self.icount
+            if nlayers == 0 and not species.isGas:
+                continue
             # only for neutral species
             if species.charge == 0 and not species.name == "GRAIN0":
                 # check if species has no binding energy
@@ -444,9 +449,10 @@ class database:
         # print a recap with info on the network
         self.printReacap()
 
-        # Adjust the mask reaction, add index and compute RHS
-        self.updateMaskReaction()
-        self.reactionsAll += self.maskReaction
+        if self.nlayers > 0:
+            # Adjust the mask reaction, add index and compute RHS
+            self.updateMaskReaction()
+            self.reactionsAll += self.maskReaction
 
         # dry run skips F90 preprocessing, compilation, and run
         if not dry:
@@ -568,7 +574,7 @@ class database:
 
 
             # Check if gas-phase photodissociation:
-            if rea.type == "gasphase_Av" and rea.formula == 2 and rea.kidatype in [1, 2, 3]:
+            if rea.type == "gasphase_Av" and rea.formula == 2 and rea.kidatype in [1, 2, 3] and self.nlayers > 0:
                 addReaction = True
                 # First add photodissociation for all relevant reactions present in gas-phase (KIDA)
 
@@ -631,6 +637,8 @@ class database:
             self.reactionsGas.append(rea)
 
         # #######################################################
+        if self.nlayers == 0:
+            return
         # NOTE: exception for CH3OH, following Karin Oberg et al (2009) branching ratios 5:1:1
         if 'CH3OH_gas' in speciesDict.keys():
             k_CH3OH_total = 1.69e-9  # KIDA total gasphase alpha.
@@ -784,7 +792,7 @@ class database:
                 copyfile('./f90templates/kemimo_fixed_H2.f90', './kemimo.f90')
             copyfile('./f90templates/kemimo_flux_threephase.f90',
                      './kemimo_flux.f90')
-        else:
+        elif self.nlayers == 1:
             if self.H2spin:
                 copyfile('./f90templates/kemimo_ode_twophase.f90',
                          './kemimo_ode.f90')
@@ -1691,36 +1699,30 @@ class database:
             if rea.layer < 0:
                 continue
             if isinstance(rea, reaction):
-                for ilayer in range(1, self.nlayers+1):
-                    # Skip everything but 2body in layers below surface
-                    if ilayer > 1:
-                        continue
-                    # get indexes in F90 format
-                    idxR = [str(rea.baseIdx), str(ilayer)]
-                    for x in rea.reactants: 
-                        if x.isGas:
-                            idxR.append(str(x.idx + 1))
-                        else:
-                            idxR.append(str(int(x.idx + 1) + (ilayer-1)*offset))
-                    idxP = []
-                    for x in rea.products:
-                        if x.isGas:
-                            idxP.append(str(x.idx + 1))
-                        else:
-                            #if x.name in ["o_H2_surface", "p_H2_surface"]:
-                            #    idxP.append(dummy)
-                            #else:
-                            idxP.append(str(int(x.idx + 1) + (ilayer-1)*offset))
-                    # fill missing species with dummies
-                    idxR += [dummy] * (maxR - len(idxR))
-                    idxP += [dummy] * (maxP - len(idxP))
+                ilayer = 1 # HERE WE NEED A LOOP IF WE WANT TO ADD MANTLE REACTIONS
+                # get indexes in F90 format
+                idxR = [str(rea.baseIdx), str(ilayer)]
+                for x in rea.reactants:
+                    if x.isGas:
+                        idxR.append(str(x.idx + 1))
+                    else:
+                        idxR.append(str(int(x.idx + 1) + (ilayer-1)*offset))
+                idxP = []
+                for x in rea.products:
+                    if x.isGas:
+                        idxP.append(str(x.idx + 1))
+                    else:
+                        idxP.append(str(int(x.idx + 1) + (ilayer-1)*offset))
+                # fill missing species with dummies
+                idxR += [dummy] * (maxR - len(idxR))
+                idxP += [dummy] * (maxP - len(idxP))
 
-                    # ----------------------------------------------
-                    # add mask reaction integer for the reaction
-                    rtype = getReactionType(rea)
-                    idxP += [str(rtype)]
-                    # store the joined row
-                    allIdx.append(" ".join(idxR + idxP))
+                # ----------------------------------------------
+                # add mask reaction integer for the reaction
+                rtype = getReactionType(rea)
+                idxP += [str(rtype)]
+                # store the joined row
+                allIdx.append(" ".join(idxR + idxP))
             else:
                 # get indexes in F90 format
                 idxR = [str(rea.baseIdx), str(0)]
