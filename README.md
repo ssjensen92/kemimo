@@ -17,8 +17,7 @@ In the model directory:
  - "pathway.py" controls whether to run the model or only pre-process the network. Pre-processing includes reading the chemical network and writing the Fortran files for compilation.
  - "main.f90" is the model script. In this file, one must specify the initial abundances and the physical conditions or evolution. A basic template is provided. 
 
-Boolean settings in `config.nml` use `1` for true and `0` for false. H2 is
-included dynamically in every model; `h2_spin` controls whether its
+Boolean settings in `config.nml` use `1` for true and `0` for false. `h2_spin` controls whether its
 ortho/para chemistry is included. Reaction-diffusion competition is enabled
 by default and can be disabled with:
 
