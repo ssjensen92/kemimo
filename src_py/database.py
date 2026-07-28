@@ -6,6 +6,7 @@ from dummy_species import dummy_species
 from reaction import reaction
 from monolayer_reaction import monolayer_reaction
 from reactionGas import reactionGas
+from model_config import load_model_config
 from subprocess import check_output
 from math import sqrt, pi
 import sys
@@ -25,36 +26,35 @@ import itertools
 class database:
     # *****************
     # database class constructor
-    def __init__(self, datadir="./standard_data/", nlayers=2, layerThickness=4.0,
-                 ignoreMissingH=True, ignoreMissingEbind=True, 
-                 allSpeciesToDust=False, include_H2=True, limit2body=True, respectGasphaseLimits=True,
-                 multiprocessing=True, doSwap=False, H2spin=True, encounterDesorption=False):
+    def __init__(self):
         '''
-            nlayers is the number of ice layers to consider, which will be hardcoded in the ODE system.
-            layerThickness is the thickness of one individual layer in mly.
-            reactionType is for benchmarking against various models.
+            Load model settings from config.nml in the working directory.
+        '''
+        config = load_model_config()
+        nlayers = config.nlayers
+        ignoreMissingH = config.ignore_missing_h
+        ignoreMissingEbind = config.ignore_missing_ebind
+        encounterDesorption = config.encounter_desorption
 
-            nlayers: the number of ice layer (2 in a three-phase model, 1 for two-phase model, 0 for gas-phase only)
-            layer thickness: the thickness of the *surface* layer in mly
-        '''
-        self.layerThickness = layerThickness
+        self.layerThickness = config.layer_thickness
         # do (physical) swapping between surface and mantle:
-        self.doSwap = doSwap
-        # Include H2 formation in network or keep static?
-        self.include_H2 = include_H2
+        self.doSwap = config.do_swap
         # include H2 spin (this flag is necessary for kemimo_ode where o/p H2 is hardcoded)
-        self.H2spin = H2spin
+        self.H2spin = config.h2_spin
         # Limit 2body reactions to Ea only or use combinatorics to look for reactions?
-        self.limit2body = limit2body
+        self.limit2body = config.limit_2body
         # allSpeciesToDust: Add all species present in the gasphase to the dust phase.
-        self.allSpeciesToDust = allSpeciesToDust
+        self.allSpeciesToDust = config.all_species_to_dust
         # Respect (lower) gasphase limits. Many reactions in KIDA limited to > 10 K. This will lower the limit to 5 K.
-        self.respectGasphaseLimits = respectGasphaseLimits  #  USE AT OWN RISK
+        self.respectGasphaseLimits = config.respect_gasphase_limits  # USE AT OWN RISK
+        self.reactionDiffusionCompetition = config.reaction_diffusion_competition
         
-        self.datadir = datadir
+        self.datadir = config.datadir
+        if not self.datadir.endswith("/"):
+            self.datadir += "/"
 
         # multiprocessing
-        self.multiprocessing = multiprocessing
+        self.multiprocessing = config.multiprocessing
 
         # empty surface reactions
         self.reactions = []
@@ -65,16 +65,16 @@ class database:
         # fileAtoms: name of the file with atoms and their masses
         # fileEa: name of the file with reactions activation barriers
         # fileYields: name of the file with photodissociation yields
-        fileSpecies = datadir + "species.dat"
-        fileDustSpecies = datadir + "speciesDust.dat"
-        fileEbind = datadir + "Ebind.dat"
-        fileDeltaH = datadir + "deltaH.dat"
-        fileAtoms = datadir + "atoms.dat"
-        fileEa = datadir + "Ea.dat"
-        fileBarrierWidth = datadir + "barrierWidths.dat"
-        fileBratio = datadir + "branchingRatios.dat"
-        fileYields = datadir + "yieldPD.dat"
-        fileCheckBarriers = datadir + "check_barrier.dat"
+        fileSpecies = self.datadir + "species.dat"
+        fileDustSpecies = self.datadir + "speciesDust.dat"
+        fileEbind = self.datadir + "Ebind.dat"
+        fileDeltaH = self.datadir + "deltaH.dat"
+        fileAtoms = self.datadir + "atoms.dat"
+        fileEa = self.datadir + "Ea.dat"
+        fileBarrierWidth = self.datadir + "barrierWidths.dat"
+        fileBratio = self.datadir + "branchingRatios.dat"
+        fileYields = self.datadir + "yieldPD.dat"
+        fileCheckBarriers = self.datadir + "check_barrier.dat"
         # Start timing:
         start = time.time()
         # load data from files, see details in the corresponding methods
@@ -781,15 +781,12 @@ class database:
     def preproc(self):
         # prepare ODE
         if self.nlayers == 2:
-            if self.include_H2 and self.H2spin:
+            if self.H2spin:
                 copyfile('./f90templates/kemimo_ode_include_H2.f90', './kemimo_ode.f90')
                 copyfile('./f90templates/kemimo_include_H2.f90', './kemimo.f90')
-            elif self.include_H2 and not self.H2spin:
+            else:
                 copyfile('./f90templates/kemimo_ode_include_H2_nospin.f90', './kemimo_ode.f90')
                 copyfile('./f90templates/kemimo_include_H2.f90', './kemimo.f90')
-            else:
-                copyfile('./f90templates/kemimo_ode_fixed_H2.f90', './kemimo_ode.f90')
-                copyfile('./f90templates/kemimo_fixed_H2.f90', './kemimo.f90')
             copyfile('./f90templates/kemimo_flux_threephase.f90',
                      './kemimo_flux.f90')
         elif self.nlayers == 1:
@@ -1205,13 +1202,15 @@ class database:
             p=Pool(ncpu)
             # loop on combinations to find reactions
             result = p.map(findReactions_parser, list(zip(
-                combinations, itertools.repeat(combinations), itertools.repeat(self.Ea), itertools.repeat(self.barrierWidths), itertools.repeat(self.Bratios), itertools.repeat(self.include_H2))))
+                combinations, itertools.repeat(combinations), itertools.repeat(self.Ea), itertools.repeat(self.barrierWidths), itertools.repeat(self.Bratios))))
             p.close()
             p.join()
         else:
             result = []
             for i in range(len(combinations)):
-                res = findReactions_parser(list([combinations[i], combinations, self.Ea, self.barrierWidths, self.Bratios, self.include_H2]))
+                res = findReactions_parser(
+                    [combinations[i], combinations, self.Ea,
+                     self.barrierWidths, self.Bratios])
                 result.append(res)
 
         for r in result:
@@ -1308,22 +1307,6 @@ class database:
             try:
                 reactants = np.array([speciesDict[i] for i in rs])
                 products = np.array([speciesDict[i] for i in ps])
-                # check if H2 in products, due to special treatment:
-                if self.include_H2 or len(ps) < 2:
-                    pass
-                else:
-                    # If H2 in products and not including H2 explicitly, then release to gasphase:
-                    if any([x == 'o_H2' for x in ps]) or any([x == 'p_H2' for x in ps]):
-                        products = []
-                        for x in ps:
-                            if x == 'o_H2' or x == 'p_H2':
-                                products.append(speciesDict[x+'_gas'])
-                            else:
-                                products.append(speciesDict[x])
-                        products = np.array(products)
-
-
-
                 # sort by mass:
                 reactantsMass = [x.mass for x in reactants]
                 productsMass = [x.mass for x in products]
@@ -1391,21 +1374,6 @@ class database:
                 try:
                     reactants = np.array([speciesDict[i] for i in rs2])
                     products = np.array([speciesDict[i] for i in ps2])
-
-                    # check if H2 in products, due to special treatment:
-                    if self.include_H2 or len(ps2) < 2:
-                        pass
-                    else:
-                        # If H2 in products and not including H2 explicitly, then release to gasphase:
-                        if any([x == 'o_H2' for x in ps2]) or any([x == 'p_H2' for x in ps2]):
-                            products = []
-                            for x in ps2:
-                                if x == 'o_H2' or x == 'p_H2':
-                                    products.append(speciesDict[x+'_gas'])
-                                else:
-                                    products.append(speciesDict[x])
-                            products = np.array(products)
-
 
                     # sort by mass:
                     reactantsMass = [x.mass for x in reactants]
@@ -1496,7 +1464,8 @@ class database:
         else:
             result = []
             for i in range(len(tempspecies)):
-                res = findCombinations_parser(tempspecies[i], tempspecies)
+                res = findCombinations_parser(
+                    [tempspecies[i], tempspecies])
                 result.append(res)
 
         for r in result:
@@ -1522,13 +1491,15 @@ class database:
         # loop on combinations to find reactions
         if self.multiprocessing:
             result = p.map(findReactions_parser, list(zip(
-                combinations, itertools.repeat(combinations), itertools.repeat(self.Ea), itertools.repeat(self.barrierWidths), itertools.repeat(self.Bratios), itertools.repeat(self.include_H2))))
+                combinations, itertools.repeat(combinations), itertools.repeat(self.Ea), itertools.repeat(self.barrierWidths), itertools.repeat(self.Bratios))))
             p.close()
             p.join()
         else:
             result = []
             for i in range(len(combinations)):
-                res = findCombinations_parser(combinations[i], combinations, self.Ea, self.barrierWidths, self.Bratios, self.include_H2)
+                res = findReactions_parser(
+                    [combinations[i], combinations, self.Ea,
+                     self.barrierWidths, self.Bratios])
                 result.append(res)
 
         for r in result:
@@ -1555,7 +1526,8 @@ class database:
 
         # loop on reaction to compute rates evaporation and tunnelling probabilities
         for rea in self.reactions:
-            rea.rate()
+            rea.rate(
+                reactionDiffusionCompetition=self.reactionDiffusionCompetition)
 
     # ************************
     # get array size parameters to be replaced in commons.f90
@@ -2152,7 +2124,7 @@ def findReactions_parser(args):
 
 # ****************
 # Loop over combinations to find reactions
-def findReactions_func(comb1, combinations, Ea, barrierWidths, Bratios, include_H2):
+def findReactions_func(comb1, combinations, Ea, barrierWidths, Bratios):
     reactions = []
 
     # loop on combinations
@@ -2172,47 +2144,10 @@ def findReactions_func(comb1, combinations, Ea, barrierWidths, Bratios, include_
         if allGas1 and allGas2:
             continue
 
-        # avoid 2body_gas_gas, 2body_gas_dust, 2body_dust_gas for now, except for H2.
+        # Avoid 2body_gas_gas, 2body_gas_dust, and 2body_dust_gas.
         # Garrod et al. chemical desorption only for single product reactions
-        specials_gas = ['p_H2_gas', 'o_H2_gas']
-        #specials_gas =['H2_gas', 'HD_gas', 'D2_gas']
-        specials_dust = ['p_H2_surface', 'o_H2_surface']
-
-        if anyGas2:
-            if len(comb2["mols"]) == 1:
-                pass
-            else:
-                if include_H2:
-                    continue
-                else:
-                    continueMainLoop = False
-                    # We allow H2 gas products (for 2body with products) only:
-                    for i in comb2["mols"]:
-                        if i.isGas and i.name not in specials_gas:
-                            continueMainLoop = True
-                            break
-                        else:
-                            pass
-                    if continueMainLoop:
-                        continue
-
-        else:
-            if len(comb2["mols"]) == 1:
-                pass
-            else:
-                if include_H2:
-                    pass
-                else:
-                    continueMainLoop = False
-                    for i in comb2["mols"]:
-                        # We don't want H2_ice formation, as we want to release it straight into the gas phase.
-                        if i.name in specials_dust:
-                            continueMainLoop = True
-                            break
-                        else:
-                            pass
-                    if continueMainLoop:
-                        continue
+        if anyGas2 and len(comb2["mols"]) != 1:
+            continue
                     
 
         # ignore 2 body with gas-phase species
@@ -2222,17 +2157,7 @@ def findReactions_func(comb1, combinations, Ea, barrierWidths, Bratios, include_
         # avoid destruction and direct sublimation for now
         # i.e. H2CO -> H2_gas + CO or H2CO -> H2_gas + CO_gas raising errors
         if anyGas2 and (len(comb2["mols"]) >= 2):
-            if include_H2:
-                continue
-            else:
-                # Check if species in specials (H2)
-                nn = sorted([x.dictname for x in comb2["mols"]])
-                if any([i.startswith('p_H2_gas') for i in nn]):
-                    pass
-                elif any([i.startswith('o_H2_gas') for i in nn]):
-                    pass
-                else:
-                    continue
+            continue
 
         # avoid freezout into multiple species
         if anyGas1 and (len(comb2["mols"]) == 2):
@@ -2290,13 +2215,6 @@ def findReactions_func(comb1, combinations, Ea, barrierWidths, Bratios, include_
         if rea.dH < 0e0 and rea.barrierFromFile == False:
             continue
             #print "reaction with negative dH", rea.verbatim
-
-        if not include_H2:
-            # Ignore H2 evap/freezeout, as we treat this seperately.
-            if rea.type == 'evaporation' and rea.products[0].namebase == 'H2':
-               continue
-            if rea.type == 'freezeout' and rea.reactants[0].namebase == 'H2':
-               continue
 
         # append reaction object to reaction list
         reactions.append(rea)

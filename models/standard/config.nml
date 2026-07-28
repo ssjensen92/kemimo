@@ -1,0 +1,15 @@
+&kemimo
+  datadir = './data_majumdar2017plus/'
+  nlayers = 1
+  layer_thickness = 1d0
+  ignore_missing_h = 1
+  ignore_missing_ebind = 1
+  all_species_to_dust = 0
+  limit_2body = 1
+  respect_gasphase_limits = 0
+  multiprocessing = 1
+  do_swap = 0
+  h2_spin = 1
+  encounter_desorption = 0
+  reaction_diffusion_competition = 1
+/

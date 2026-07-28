@@ -1,15 +1,13 @@
 # This is a template model
 
-import sys, os
-import datetime as dt
+import sys
 
 #move to the python source folder
 sys.path.insert(0, "./src_py/")
 from database import database
 
 #create a database from data files
-db = database(datadir="./data_kida2024/", nlayers=2, layerThickness=4.0, H2spin=False)
-db = database(datadir="./data_kida2024/", nlayers=1, layerThickness=1.0, H2spin=False)
+db = database()
 
 #save species data to a file
 #db.showSpecies(fileName="species.out")

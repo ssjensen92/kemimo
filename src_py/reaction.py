@@ -319,7 +319,7 @@ class reaction:
     # ***************
     # compute rate tunnelling and evaporation probability given the reaction type
     # and prepare reaction in F90 format, all stored as attribute
-    def rate(self):
+    def rate(self, reactionDiffusionCompetition=True):
         # constants and parameters
         kb = 1.38064852e-16  # Boltzmann constant, erg/K
         hbar = 1.0545718e-27  # planck constant/2pi, erg*s
@@ -452,18 +452,16 @@ class reaction:
                 # In principal you should include kevap in kappa, bbut in practice, as pointed out by Garrod & Pauly it makes little difference.
                 #kevap =  " + ".join([strF90(nu0[i]) + "*exp(-" + str(x.Eice) + "*invTd)" for i,x  in enumerate(self.reactants)])
                 
-                kappa = nu_max * self.Pdelta
+                productProbability = self.Pdelta
                 if self.Bratio != None:
-                    kappa *= self.Bratio
-                kappa = strF90(kappa) + "*" + Pbarrier + "&\n*(" + \
-                    strF90(nu_max) + "*" + Pbarrier + " + " + \
-                    joinedSum + ")**(-1d0) &\n"
-
-                # Without reaction-diffusion competition
-                # if self.Bratio == None:
-                #     kappa = Pbarrier + "*" + strF90(self.Pdelta)
-                # else:
-                #     kappa = Pbarrier + "*" +  strF90(self.Pdelta * self.Bratio)
+                    productProbability *= self.Bratio
+                if reactionDiffusionCompetition:
+                    reactionRate = strF90(nu_max) + "*" + Pbarrier
+                    kappa = strF90(productProbability) + "*" + reactionRate + \
+                        "&\n*(" + reactionRate + " + " + joinedSum + \
+                        ")**(-1d0) &\n"
+                else:
+                    kappa = strF90(productProbability) + "*" + Pbarrier
                 
             else:
                 if self.Bratio != None:
