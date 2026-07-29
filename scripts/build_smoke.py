@@ -1,0 +1,44 @@
+import argparse
+import os
+import sys
+from dataclasses import replace
+from pathlib import Path
+
+
+ROOT_DIR = Path(__file__).resolve().parents[1]
+SRC_DIR = ROOT_DIR / "src_py"
+sys.path.insert(0, str(SRC_DIR))
+
+import database as database_module
+from model_config import load_model_config
+from utils import makeModel
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Preprocess one model configuration for a compile smoke test.")
+    parser.add_argument("--model", required=True)
+    parser.add_argument("--nlayers", type=int, choices=(0, 1, 2), required=True)
+    parser.add_argument("--h2-spin", type=int, choices=(0, 1), required=True)
+    return parser.parse_args()
+
+
+def main():
+    args = parse_args()
+    os.chdir(ROOT_DIR)
+    makeModel(args.model)
+
+    config = replace(
+        load_model_config(),
+        nlayers=args.nlayers,
+        h2_spin=bool(args.h2_spin),
+        multiprocessing=False,
+    )
+    database_module.load_model_config = lambda: config
+
+    model = database_module.database()
+    model.run(run=False)
+
+
+if __name__ == "__main__":
+    main()

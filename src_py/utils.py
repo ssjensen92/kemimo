@@ -10,7 +10,10 @@ import numpy as np
 # *****************
 # return a list with the models
 def getModelsList(modelFolder="models/"):
-    return [x[0].replace(modelFolder, "") for x in os.walk(modelFolder) if x[0] != modelFolder]
+    return sorted([
+        name for name in os.listdir(modelFolder)
+        if os.path.isfile(os.path.join(modelFolder, name, "config.nml"))
+    ])
 
 
 # ***************

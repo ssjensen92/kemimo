@@ -10,8 +10,9 @@ The chemical network is provided in KIDA format. All files are located in the "d
 The current gas-phase network provided here is an extension of the network by Majumdar et al.(2017) [https://ui.adsabs.harvard.edu/abs/2017MNRAS.466.4470M/abstract]
 
 # Running the code
-To run the "standard" steady-state model, type "python main.py standard" in the kemimo directory. 
-The "main.py" script will read the model called "standard" located in the "models" directory. 
+To run the "standard" steady-state model, type "python main.py standard" in the kemimo directory.
+The alternative non-spin KIDA 2024 model can be selected with "python main.py kida2024".
+The "main.py" script copies the selected model from the "models" directory into the repository root as a runtime workspace. These copied files and the generated Fortran build products are not tracked.
 In the model directory: 
  - "config.nml" contains the chemical-network and preprocessing settings.
  - "pathway.py" controls whether to run the model or only pre-process the network. Pre-processing includes reading the chemical network and writing the Fortran files for compilation.
@@ -24,6 +25,29 @@ by default and can be disabled with:
 ```
 reaction_diffusion_competition = 0
 ```
+
+# Development checks
+Run the Python tests with:
+
+```
+make test
+```
+
+Preprocess and compile the default three-phase spin model without running its
+trajectory with:
+
+```
+make smoke
+```
+
+The model and configuration can be changed on the command line, for example:
+
+```
+make smoke MODEL=kida2024 NLAYERS=2 H2_SPIN=0
+```
+
+GitHub Actions runs the Python tests and compile checks for the two-phase spin,
+three-phase spin, and three-phase no-spin configurations.
 
 # Disclaimer
 "kemimo" is provided "as it is", without any warranty. The Authors assume no liability for any damages of any kind (direct or indirect damages, contractual or non-contractual damages, pecuniary or non-pecuniary damages), directly or indirectly derived or arising from the correct or incorrect usage of kemimo, in any possible environment, or arising from the impossibility to use, fully or partially, the software, or any bug or malfunction. Such exclusion of liability expressly includes any damages including the loss of data of any kind (including personal data)

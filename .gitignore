@@ -1,1 +1,40 @@
-*.pyc
+__pycache__/
+*.py[cod]
+
+# Compiled Fortran artifacts
+*.o
+*.mod
+*__genmod.f90
+/main
+/libkemimo.so
+
+# Model files copied into the repository root by main.py
+/config.nml
+/main.f90
+/pathway.py
+/plot.py
+
+# Generated network and preprocessing output
+/jacarray.dat
+/reactionarray.dat
+/network.ntw
+/verbatim.dat
+/output.dat
+/pykemimo.py
+/temp.dat
+/temp.f90
+/temp.py
+/kemimo.f90
+/kemimo_commons.f90
+/kemimo_dust_rates.f90
+/kemimo_flux.f90
+/kemimo_gas_rates.f90
+/kemimo_ode.f90
+/kemimo_rates.f90
+/kemimo_reactionarray.f90
+/kemimo_sticking.f90
+/kemimo_swappingrates.f90
+
+# Local backups
+*.bak
+*.bck

@@ -60,12 +60,19 @@ class ModelConfigTests(unittest.TestCase):
             load_model_config(self.write_config(content))
 
     def test_all_model_namelists_are_valid(self):
-        paths = [ROOT_DIR / "config.nml"]
-        paths.extend((ROOT_DIR / "models").glob("**/config.nml"))
+        paths = list((ROOT_DIR / "models").glob("**/config.nml"))
         self.assertGreaterEqual(len(paths), 2)
         for path in paths:
             with self.subTest(path=path):
                 load_model_config(path)
+
+    def test_all_fortran_templates_have_a_selection_path(self):
+        database_source = (SRC_DIR / "database.py").read_text()
+        templates = (ROOT_DIR / "f90templates").glob("*.f90")
+
+        for template in templates:
+            with self.subTest(template=template.name):
+                self.assertIn(template.name, database_source)
 
     def test_fixed_h2_templates_and_option_are_removed(self):
         fixed_templates = (

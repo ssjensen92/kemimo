@@ -850,6 +850,7 @@ class database:
         
         # -----------------------
         # prepare Python interface
+        copyfile('./f90templates/pykemimo.py', './pykemimo.py')
         doPP_Python("pykemimo.py", {"ARRAYSIZE": self.getArraySizes(python=True),
                                     "IDXLIST": self.getIdxList(),
                                     "SPECIESNAMES": self.getSpeciesNamesArray(python=True)})

@@ -1,6 +1,7 @@
 #executable name
 exec = main
 main = main.o
+PYTHON ?= python3
 
 #test if ifort is present
 wres = $(shell which flang > /dev/null; echo $$?)
@@ -62,7 +63,7 @@ opkda2.o: opkda2.f
 	$(fc) $(switch) $(nowarn) -c $< -o $@
 
 objs2 = opkda2.o
-opkda1.o: opkda1.f $(opjs2)
+opkda1.o: opkda1.f $(objs2)
 	$(fc) $(switch) $(nowarn) -c $< -o $@
 
 objs2 += opkda1.o
@@ -131,7 +132,20 @@ sharedlib: $(objs)
 clean:
 	rm -f *.o *.mod *__genmod.f90 *~ $(exec) libkemimo.so
 
-.PHONY: clean
+test:
+	$(PYTHON) -m unittest discover -s tests -v
+
+MODEL ?= standard
+NLAYERS ?= 2
+H2_SPIN ?= 1
+smoke:
+	$(PYTHON) scripts/build_smoke.py --model $(MODEL) --nlayers $(NLAYERS) --h2-spin $(H2_SPIN)
+	$(MAKE) clean
+	$(MAKE)
+
+check: test smoke
+
+.PHONY: all clean test smoke check debug omp openmp sharedlib
 
 #rule for f90
 %.o:%.f90
