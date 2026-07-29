@@ -47,5 +47,7 @@ jobs:
           --model "${{ matrix.model }}"
           --nlayers "${{ matrix.nlayers }}"
           --h2-spin "${{ matrix.h2_spin }}"
+          --layer-thickness 4
+          --thin-ice-approximation 1
       - run: make clean
       - run: make -j2

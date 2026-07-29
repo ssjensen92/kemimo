@@ -17,6 +17,7 @@ class ModelConfig:
     h2_spin: bool
     encounter_desorption: bool
     reaction_diffusion_competition: bool
+    thin_ice_approximation: bool
 
 
 _FIELD_TYPES = {
@@ -33,6 +34,7 @@ _FIELD_TYPES = {
     "h2_spin": bool,
     "encounter_desorption": bool,
     "reaction_diffusion_competition": bool,
+    "thin_ice_approximation": bool,
 }
 
 

@@ -26,6 +26,14 @@ by default and can be disabled with:
 reaction_diffusion_competition = 0
 ```
 
+Three-phase models use the thin-ice approximation by default. It relaxes the
+mantle tolerances and skips mantle transfer terms only while the mantle is
+dynamically insignificant. The normal three-phase ODE remains available with:
+
+```
+thin_ice_approximation = 0
+```
+
 # Development checks
 Run the Python tests with:
 
@@ -44,6 +52,13 @@ The model and configuration can be changed on the command line, for example:
 
 ```
 make smoke MODEL=kida2024 NLAYERS=2 H2_SPIN=0
+```
+
+`LAYER_THICKNESS` and `THIN_ICE_APPROXIMATION` can also be overridden for a
+compile check:
+
+```
+make smoke NLAYERS=2 LAYER_THICKNESS=4 THIN_ICE_APPROXIMATION=0
 ```
 
 GitHub Actions runs the Python tests and compile checks for the two-phase spin,

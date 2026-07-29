@@ -48,6 +48,7 @@ class database:
         # Respect (lower) gasphase limits. Many reactions in KIDA limited to > 10 K. This will lower the limit to 5 K.
         self.respectGasphaseLimits = config.respect_gasphase_limits  # USE AT OWN RISK
         self.reactionDiffusionCompetition = config.reaction_diffusion_competition
+        self.thinIceApproximation = config.thin_ice_approximation
         
         self.datadir = config.datadir
         if not self.datadir.endswith("/"):
@@ -782,11 +783,17 @@ class database:
         # prepare ODE
         if self.nlayers == 2:
             if self.H2spin:
-                copyfile('./f90templates/kemimo_ode_include_H2.f90', './kemimo_ode.f90')
-                copyfile('./f90templates/kemimo_include_H2.f90', './kemimo.f90')
+                if self.thinIceApproximation:
+                    odeTemplate = 'kemimo_ode_include_H2_thin_ice_fast.f90'
+                else:
+                    odeTemplate = 'kemimo_ode_include_H2.f90'
             else:
-                copyfile('./f90templates/kemimo_ode_include_H2_nospin.f90', './kemimo_ode.f90')
-                copyfile('./f90templates/kemimo_include_H2.f90', './kemimo.f90')
+                if self.thinIceApproximation:
+                    odeTemplate = 'kemimo_ode_include_H2_nospin_thin_ice_fast.f90'
+                else:
+                    odeTemplate = 'kemimo_ode_include_H2_nospin.f90'
+            copyfile('./f90templates/' + odeTemplate, './kemimo_ode.f90')
+            copyfile('./f90templates/kemimo_include_H2.f90', './kemimo.f90')
             copyfile('./f90templates/kemimo_flux_threephase.f90',
                      './kemimo_flux.f90')
         elif self.nlayers == 1:
