@@ -10,8 +10,6 @@ class ThreePhaseEwtScalingTests(unittest.TestCase):
         templates = (
             "kemimo_ode_include_H2.f90",
             "kemimo_ode_include_H2_nospin.f90",
-            "kemimo_ode_include_H2_thin_ice_fast.f90",
-            "kemimo_ode_include_H2_nospin_thin_ice_fast.f90",
         )
         for filename in templates:
             with self.subTest(filename=filename):

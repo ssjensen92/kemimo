@@ -1,4 +1,8 @@
 module kemimo_ode
+  ! Fast path for a dynamically insignificant mantle.
+  ! Both quantities are expressed as fractions of one monolayer.
+  real*8, parameter :: thin_mantle_threshold = 1d-8
+  real*8, parameter :: thin_mantle_atol_budget = 1d-10
 contains
   !************************
   !evolve chemistry for a time-step dt (s)
@@ -80,7 +84,18 @@ contains
     ni(:) = n(:)
     kalli(:) = kall(:)
     ! adjust absolute tolerance for abundant species:
+    atol(:) = 1d-22
     atol = max(atol(:), 1d-16 * n(:))
+    ! Do not force DLSODES to resolve every mantle species far below the
+    ! abundance at which the mantle affects the three-phase solution.  The
+    ! budget is divided over the mantle species, so their summed absolute
+    ! tolerance remains thin_mantle_atol_budget monolayers.
+    if (n(idx_mantle_mask) / max(kall(nrea), tiny(1d0)) < thin_mantle_threshold) then
+      atol(mantle_start:mantle_end) = max(atol(mantle_start:mantle_end), &
+        thin_mantle_atol_budget * kall(nrea) / real(mantle_end-mantle_start+1))
+      atol(idx_mantle_mask) = max(atol(idx_mantle_mask), &
+        thin_mantle_atol_budget * kall(nrea))
+    endif
     ewt_fac(:) = 1d0
     ! count attempts
     ncount = 0
@@ -117,7 +132,7 @@ contains
           ncount = ncount + 1
           print*, 'reducing dt, istate = -3'
           !problem with input.
-          if (ncount > 10) then 
+          if (ncount > 10) then
             print *, 'Attempted 10 times with state -3 from solver. Giving up.'
             stop
           endif
@@ -126,12 +141,12 @@ contains
           kall(:) = kall(:) + 1d-25 ! small budge to aid convergence
           istate = 1
        elseif(istate==-4) then
-          ncount = ncount + 1 
-          !problem with input.  
+          ncount = ncount + 1
+          !problem with input.
           if (ncount > 10) then
             print *, 'Attempted 10 times with state -4 from solver. Giving up.'
             stop
-          endif 
+          endif
           kall(:) = kall(:) + 1d-25
           n(:) = ni(:)
           istate = 1
@@ -161,6 +176,7 @@ contains
     real*8 :: alpha, dnsdt, R
     real*8 :: Rswap_total, Rswap
     integer :: offset
+    logical :: thinMantle
 
     dn(:) = 0d0
     n(idx_dummy) = 1d0
@@ -197,7 +213,7 @@ contains
         dn(reactionArray(i,8)) = dn(reactionArray(i,8)) + flux
 
     end do
-    
+
     dn(idx_dummy) = 0d0
 
     do i=surface_start, surface_end
@@ -208,7 +224,7 @@ contains
 
     R = dn(idx_surface_mask)
     dn(idx_surface_mask) = dn(idx_surface_mask)*kall(nrea)
-    if (dn(idx_surface_mask) > real(layerThickness)) then 
+    if (dn(idx_surface_mask) > real(layerThickness)) then
       reduce_dt = 1
     else
       reduce_dt = 0
@@ -218,13 +234,14 @@ contains
     ! Nmantle
     Nmantle = n(idx_mantle_mask) / kall(nrea)
     Nsurface = n(idx_surface_mask) / kall(nrea)
+    thinMantle = Nmantle < thin_mantle_threshold
 
     ! Determine offset between layer indices:
     offset = mantle_start - surface_start
 
     ! ----------------------------------------------------------
     ! Swapping rates mantle-surface:
-    if (doSwap .eqv. .true.) then
+    if ((doSwap .eqv. .true.) .and. .not. thinMantle) then
       Rswap_total = 0d0
       do i=mantle_start, mantle_end
         if (i == idx_o_H2_mantle) cycle
@@ -264,30 +281,36 @@ contains
       ! Adjust mask:
       dn(idx_surface_mask) = dn(idx_surface_mask) - dnsdt * kall(nrea)
       dn(idx_mantle_mask) = dn(idx_mantle_mask) + dnsdt * kall(nrea)
+      if (dnsdt /= 0d0 .and. Nsurface > tiny(1d0)) then
       do i=surface_start, surface_end
         if (i == idx_o_H2_surface) cycle
         if (i == idx_p_H2_surface) cycle
         dn(i) = dn(i) - dnsdt * n(i)/Nsurface
         dn(i+offset) = dn(i+offset) + dnsdt * n(i)/Nsurface
       enddo
+      endif
 
 
     ! --------------------------------------
     ! desorption:
     else
+      if (thinMantle) then
+        dnsdt = 0d0
+      else
       ! Adjust mask:
       alpha = min(1d0, Nmantle / min(Nsurface, ndns))
       if (alpha < 0d0) print*, alpha
       dnsdt = alpha * R
       dn(idx_surface_mask) = dn(idx_surface_mask) - dnsdt * kall(nrea)
       dn(idx_mantle_mask) = dn(idx_mantle_mask) + dnsdt * kall(nrea)
-      
+
       do i=surface_start, surface_end
         if (i == idx_o_H2_surface) cycle
         if (i == idx_p_H2_surface) cycle
         dn(i) = dn(i) - dnsdt * n(i+offset)/Nmantle
         dn(i+offset) = dn(i+offset) + dnsdt * n(i+offset)/Nmantle
       enddo
+      endif
 
     endif
 
@@ -324,6 +347,7 @@ contains
     real*8 :: Nsurface, Nmantle
     real*8 :: alpha, dnsdt, R
     real*8 :: Rswap_total, Rswap
+    logical :: thinMantle
 
     !!BEGIN_JACOBIAN
     ! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -342,7 +366,7 @@ contains
 
     ! Chemistry part:
     do ii=1, nrea-1
-      ! Get reaction i from jacArray for species j, entry ii      
+      ! Get reaction i from jacArray for species j, entry ii
       i = jacArray(j, ii)
       ! If mantle species or dummy, exit loop.
       if (real(i) < 0d0 .or. j > surface_end) exit
@@ -406,13 +430,14 @@ contains
     ! Nmantle, Nsurface
     Nmantle = n(idx_mantle_mask) / kall(nrea)
     Nsurface = n(idx_surface_mask) / kall(nrea)
+    thinMantle = Nmantle < thin_mantle_threshold
 
     ! Determine offset between layer indices:
     offset = mantle_start - surface_start
 
     ! ----------------------------------------------------------
     ! Swapping rates mantle-surface:
-    if (doSwap .eqv. .true.) then
+    if ((doSwap .eqv. .true.) .and. .not. thinMantle) then
       Rswap_total = 0d0
       do i=mantle_start, mantle_end
         if (i == idx_o_H2_mantle) cycle
@@ -455,6 +480,7 @@ contains
       ! Adjust mask:
       pdj(idx_surface_mask) = pdj(idx_surface_mask) - dnsdt * kall(nrea)
       pdj(idx_mantle_mask) = pdj(idx_mantle_mask) + dnsdt * kall(nrea)
+      if (dnsdt /= 0d0 .and. Nsurface > tiny(1d0)) then
       do i=surface_start, surface_end
         if (i == idx_p_H2_surface) cycle
         if (i == idx_o_H2_surface) cycle
@@ -463,17 +489,18 @@ contains
         pdj(i) = pdj(i) - dnsdt * n(i)/Nsurface
         pdj(i+offset) = pdj(i+offset) + dnsdt * n(i)/Nsurface
       enddo
+      endif
 
     ! --------------------------------------
     ! desorption:
     else
       ! Adjust mask:
-      if (Nmantle < 1d-25) return
+      if (thinMantle) return
       alpha = min(1d0, Nmantle / min(Nsurface, ndns))
       dnsdt = alpha * R
       pdj(idx_surface_mask) = pdj(idx_surface_mask) - dnsdt * kall(nrea)
       pdj(idx_mantle_mask) = pdj(idx_mantle_mask) + dnsdt * kall(nrea)
-      
+
       do i=surface_start, surface_end
         if (i == idx_p_H2_surface) cycle
         if (i == idx_o_H2_surface) cycle

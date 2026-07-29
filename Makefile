@@ -139,9 +139,8 @@ MODEL ?= standard
 NLAYERS ?= 2
 H2_SPIN ?= 1
 LAYER_THICKNESS ?= 4
-THIN_ICE_APPROXIMATION ?= 1
 smoke:
-	$(PYTHON) scripts/build_smoke.py --model $(MODEL) --nlayers $(NLAYERS) --h2-spin $(H2_SPIN) --layer-thickness $(LAYER_THICKNESS) --thin-ice-approximation $(THIN_ICE_APPROXIMATION)
+	$(PYTHON) scripts/build_smoke.py --model $(MODEL) --nlayers $(NLAYERS) --h2-spin $(H2_SPIN) --layer-thickness $(LAYER_THICKNESS)
 	$(MAKE) clean
 	$(MAKE)
 

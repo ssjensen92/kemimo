@@ -12,5 +12,4 @@
   h2_spin = 0
   encounter_desorption = 0
   reaction_diffusion_competition = 1
-  thin_ice_approximation = 1
 /

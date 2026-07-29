@@ -155,11 +155,10 @@ class ReactionDiffusionCompetitionTests(unittest.TestCase):
 
 
 class SpinTemplateSelectionTests(unittest.TestCase):
-    def selected_templates(self, h2_spin, thin_ice=True):
+    def selected_templates(self, h2_spin):
         model = database.__new__(database)
         model.nlayers = 2
         model.H2spin = h2_spin
-        model.thinIceApproximation = thin_ice
         copies = []
 
         def record_copy(source, destination):
@@ -179,11 +178,11 @@ class SpinTemplateSelectionTests(unittest.TestCase):
         nonspin_templates = self.selected_templates(h2_spin=False)
         self.assertEqual(
             spin_templates[0][0],
-            "./f90templates/kemimo_ode_include_H2_thin_ice_fast.f90",
+            "./f90templates/kemimo_ode_include_H2.f90",
         )
         self.assertEqual(
             nonspin_templates[0][0],
-            "./f90templates/kemimo_ode_include_H2_nospin_thin_ice_fast.f90",
+            "./f90templates/kemimo_ode_include_H2_nospin.f90",
         )
         self.assertEqual(
             spin_templates[1][0],
@@ -198,21 +197,6 @@ class SpinTemplateSelectionTests(unittest.TestCase):
             nonspin_templates[3][0],
             "./f90templates/kemimo_rates_nospin.f90",
         )
-
-    def test_normal_three_phase_odes_remain_selectable(self):
-        spin_templates = self.selected_templates(
-            h2_spin=True, thin_ice=False)
-        nonspin_templates = self.selected_templates(
-            h2_spin=False, thin_ice=False)
-        self.assertEqual(
-            spin_templates[0][0],
-            "./f90templates/kemimo_ode_include_H2.f90",
-        )
-        self.assertEqual(
-            nonspin_templates[0][0],
-            "./f90templates/kemimo_ode_include_H2_nospin.f90",
-        )
-
 
 if __name__ == "__main__":
     unittest.main()

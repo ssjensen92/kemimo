@@ -26,7 +26,6 @@ VALID_CONFIG = """\
   h2_spin = 1
   encounter_desorption = 0
   reaction_diffusion_competition = 0
-  thin_ice_approximation = 1
 /
 """
 
@@ -46,24 +45,18 @@ class ModelConfigTests(unittest.TestCase):
         self.assertEqual(config.layer_thickness, 4.0)
         self.assertTrue(config.h2_spin)
         self.assertFalse(config.reaction_diffusion_competition)
-        self.assertTrue(config.thin_ice_approximation)
 
-    def test_thin_ice_approximation_defaults_are_enabled(self):
-        paths = list((ROOT_DIR / "models").glob("**/config.nml"))
-        for path in paths:
-            with self.subTest(path=path):
-                self.assertTrue(load_model_config(path).thin_ice_approximation)
-
-    def test_three_phase_thin_ice_templates_are_selectable(self):
-        database_source = (SRC_DIR / "database.py").read_text()
+    def test_three_phase_templates_use_thin_mantle_fast_path(self):
         templates = (
-            "kemimo_ode_include_H2_thin_ice_fast.f90",
-            "kemimo_ode_include_H2_nospin_thin_ice_fast.f90",
+            "kemimo_ode_include_H2.f90",
+            "kemimo_ode_include_H2_nospin.f90",
         )
-        self.assertIn("if self.thinIceApproximation", database_source)
         for filename in templates:
             with self.subTest(filename=filename):
-                self.assertIn(filename, database_source)
+                source = (
+                    ROOT_DIR / "f90templates" / filename).read_text()
+                self.assertIn("thin_mantle_threshold = 1d-8", source)
+                self.assertIn("thin_mantle_atol_budget = 1d-10", source)
 
     def test_rejects_missing_variable(self):
         content = VALID_CONFIG.replace("  do_swap = 0\n", "")
