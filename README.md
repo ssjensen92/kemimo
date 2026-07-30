@@ -6,7 +6,7 @@ Feel free to contact me if you encounter any bugs or have questions.
 The code is provided under the GPL v3 license. I ask that you refer to Jensen et al. (2021) [https://ui.adsabs.harvard.edu/link_gateway/2021A&A...649A..66J/doi:10.1051/0004-6361/202040196] if the code or parts hereof are used in published works.
 
 # Chemical network
-The chemical network is provided in KIDA format. All files are located in the "data_deuterated_total" directory.
+The chemical network is provided in KIDA format. All files are located in the "data_majumdar2017plus" directory.
 The current gas-phase network provided here is an extension of the network by Majumdar et al.(2017) [https://ui.adsabs.harvard.edu/abs/2017MNRAS.466.4470M/abstract]
 
 # Running the code
