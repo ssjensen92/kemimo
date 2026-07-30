@@ -86,6 +86,19 @@ class ModelConfigTests(unittest.TestCase):
             with self.subTest(template=template.name):
                 self.assertIn(template.name, database_source)
 
+    def test_ode_templates_use_standard_solver_tolerances(self):
+        templates = (ROOT_DIR / "f90templates").glob("kemimo_ode*.f90")
+
+        for template in templates:
+            source = template.read_text()
+            with self.subTest(template=template.name):
+                self.assertRegex(
+                    source, r"rtol\(nmols\)\s*=\s*1d-5")
+                self.assertRegex(
+                    source, r"atol\(nmols\)\s*=\s*1d-20")
+                self.assertNotRegex(
+                    source, r"atol\(:\)\s*=\s*1d-22")
+
     def test_fixed_h2_templates_and_option_are_removed(self):
         fixed_templates = (
             "kemimo_fixed_H2.f90",

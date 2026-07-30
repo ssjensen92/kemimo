@@ -25,8 +25,8 @@ contains
     integer,parameter::lrw=20+16*nmols+3*nmols**2
     integer,parameter::liw=30
     !tolerances
-    real*8,parameter::rtol(nmols) = 1d-6
-    real*8::atol(nmols) = 1d-22
+    real*8,parameter::rtol(nmols) = 1d-5
+    real*8::atol(nmols) = 1d-20
     integer::neqa(1),itol,itask,istate,iopt,mf
     integer::iwork(liw)
     real*8::rwork(lrw),tloc
@@ -84,7 +84,7 @@ contains
     ni(:) = n(:)
     kalli(:) = kall(:)
     ! adjust absolute tolerance for abundant species:
-    atol(:) = 1d-22
+    atol(:) = 1d-20
     atol = max(atol(:), 1d-16 * n(:))
     ! Do not force DLSODES to resolve every mantle species far below the
     ! abundance at which the mantle affects the three-phase solution.  The

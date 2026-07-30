@@ -17,8 +17,8 @@ contains
     integer,parameter::lrw=20+16*nmols+3*nmols**2
     integer,parameter::liw=30
     !tolerances
-    real*8,parameter::rtol(nmols) = 1d-6
-    real*8,parameter::atol(nmols) = 1d-22
+    real*8,parameter::rtol(nmols) = 1d-5
+    real*8,parameter::atol(nmols) = 1d-20
     integer::neqa(1),itol,itask,istate,iopt,mf
     integer::iwork(liw)
     real*8::rwork(lrw),tloc
